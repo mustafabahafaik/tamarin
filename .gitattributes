@@ -1,0 +1,2 @@
+# RFC 5545 örnek takvimi CRLF satır sonlarıyla bayt bayt korunmalı (testte birebir karşılaştırılır).
+tests/fixtures/*.ics -text

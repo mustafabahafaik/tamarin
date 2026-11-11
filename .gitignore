@@ -1,0 +1,33 @@
+# Yalnızca bu bilgisayarda: tasarım referansı (tools/cut_tamarin.py okur), depoya girmez
+referans/
+
+# Bağımlılıklar
+node_modules/
+
+# Python (tools/)
+__pycache__/
+*.pyc
+.venv/
+
+# İşletim sistemi dosyaları
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Düzenleyici ve geçici dosyalar
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+*.bak
+*.log
+.cache/
+.vscode/
+.idea/
+
+# Claude Code yerel ayarları (launch.json paylaşılır)
+.claude/settings.local.json

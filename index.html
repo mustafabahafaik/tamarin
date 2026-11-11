@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tamarin</title>
+  <meta name="description" content="Kişisel günlük asistan">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#16120f">
+
+  <!-- iOS: Ana Ekrana Ekle -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Tamarin">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <!-- Katmanlar (alttan üste): zemin → hava efekti → içerik (#app) -->
+  <div class="ambient" aria-hidden="true"></div>
+  <div id="scene" class="scene" aria-hidden="true">
+    <canvas class="fx"></canvas>
+  </div>
+  <div id="app"></div>
+  <noscript><p class="noscript">Tamarin için JavaScript gerekli.</p></noscript>
+</body>
+</html>
