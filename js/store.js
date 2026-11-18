@@ -424,22 +424,21 @@ function parse(raw) {
 }
 
 /**
- * js/phones-seed.js'teki telefonlar. İlk kez (phoneSeed 0): numarası kayıtlı olmayanlar eklenir.
- * Sonraki sürümlerde telefon eklenmez (silinen geri gelmesin); yalnızca aynı numaralı telefonun PIN'i
- * boşsa tohumdaki PIN yazılır (elle girilen PIN'e dokunulmaz). Diğer kayıtlara dokunulmaz. Değiştiyse true.
+ * js/phones-seed.js'teki telefonlar, sürüm bazlı: since'i kayıtlı phoneSeed'den büyük olan ve numarası henüz
+ * kayıtlı olmayan telefonlar eklenir; since <= phoneSeed olanlar (daha önce eklenmiş, belki silinmiş) geri
+ * gelmez. Aynı numaralı telefonun PIN'i boşsa tohumdaki PIN yazılır (elle girilen PIN'e dokunulmaz).
+ * Diğer kayıtlara dokunulmaz. Değiştiyse true.
  */
 function applyPhoneSeed() {
   if (state.phoneSeed >= SEED_VERSION) return false;
-  const byNumber = new Map(state.phones.filter((p) => p.number).map((p) => [p.number, p]));
+  const numbers = new Set(state.phones.filter((p) => p.number).map((p) => p.number));
   const phones = state.phones.map((p) => {
     const seed = PHONE_SEED.find((x) => x.number === p.number);
     return p.number && !p.pin && seed?.pin && simPin(seed.pin) ? { ...p, pin: seed.pin } : p;
   });
-  if (state.phoneSeed === 0) {
-    for (const raw of PHONE_SEED) {
-      if (byNumber.has(raw.number)) continue;
-      try { phones.push(normalize('phones', raw)); } catch { /* bozuk tohum kaydı: atla */ }
-    }
+  for (const { since = 1, ...raw } of PHONE_SEED) {
+    if (since <= state.phoneSeed || numbers.has(raw.number)) continue;
+    try { phones.push(normalize('phones', raw)); numbers.add(raw.number); } catch { /* bozuk tohum kaydı: atla */ }
   }
   state = { ...state, phones, phoneSeed: SEED_VERSION };
   return true;

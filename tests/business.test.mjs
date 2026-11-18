@@ -1,7 +1,8 @@
 // Business testi: node tests/business.test.mjs   (proje kökünden; harici kütüphane yok)
 // Telefonlar + Telegram/Bybit/OKX hesapları: numara/PIN, model/renk/platform/durum doğrulama, ek bilgi sınırları,
 // doğal sıra, telefon silinince bağın kopması ve Geri al, bilinmeyen phoneId, arama (PIN'de aramaz), yedek,
-// "Bunu Kasa'ya koy" uyarısı, Business özeti. Tüm numara, PIN, kullanıcı adı ve UID'ler uydurmadır.
+// "Bunu Kasa'ya koy" uyarısı, Business özeti. Yazılan numara, PIN, kullanıcı adı ve UID'ler uydurmadır;
+// tohum testi gerçek tohumu js/phones-seed.js'ten okur (burada numara yazılmaz).
 import assert from 'node:assert/strict';
 
 const mem = new Map();
@@ -236,6 +237,52 @@ await test('"Bunu Kasa\'ya koy": şifre, password, 2FA anahtarı, yedek kod, see
   assert.ok(St.vaultWords('', [{ label: 'API key', value: 'x' }]).includes('API anahtarı'));
   assert.deepEqual(St.vaultWords('2FA açık, Google Authenticator', [{ label: 'Referans kodu', value: 'ABC123' }, { label: 'Ülke', value: 'TR' }]), []);
   assert.deepEqual(St.vaultWords(''), []);
+});
+
+await test('tohum sürüm bazlı: phoneSeed 2\'de iPhone 12 eklenir, silinen eski telefon gelmez; 3\'te hiçbir şey eklenmez; aynı numara iki kez eklenmez', async () => {
+  // Tohum numaraları dosyadan okunur (burada yazılmaz).
+  const { PHONE_SEED, SEED_VERSION } = await import('../js/phones-seed.js');
+  assert.equal(SEED_VERSION, 3);
+  assert.ok(PHONE_SEED.every((x) => Number.isInteger(x.since) && x.since >= 1 && x.since <= SEED_VERSION));
+  const old = PHONE_SEED.filter((x) => x.since <= 2);
+  const fresh = PHONE_SEED.filter((x) => x.since > 2);
+  assert.equal(fresh.length, 1);
+  assert.equal(fresh[0].model, 'iPhone 12');
+  const asPhone = (x, extra = {}) => ({ name: x.name, number: x.number, pin: x.pin, model: x.model, color: x.color, cased: x.cased, ...extra });
+
+  // phoneSeed 2: eski telefonlardan biri silinmiş; iPhone 12 gelir, silinen gelmez, diğer kayıtlar kalır.
+  const kept = old.slice(1);
+  mem.set('tamarin.v1', JSON.stringify({ version: 2, phoneSeed: 2, phones: kept.map((x) => asPhone(x)),
+    accounts: [{ id: 'a1', platform: 'Telegram', label: 'Eren' }] }));
+  const v2 = await import(`../js/store.js?tohum2=${Date.now()}`);
+  const phones = v2.getState().phones;
+  assert.equal(phones.length, kept.length + 1);
+  const added = phones.find((p) => p.number === fresh[0].number);
+  assert.deepEqual([added.name, added.model, added.color, added.cased, added.pin], [fresh[0].name, 'iPhone 12', 'Su yeşili', true, fresh[0].pin]);
+  assert.equal(added.pin.length, 4);
+  assert.ok(added.pin.startsWith('0')); // baştaki 0 korunur
+  assert.ok(!phones.some((p) => p.number === old[0].number)); // silinen eski telefon geri gelmez
+  assert.equal(v2.getState().phoneSeed, 3);
+  assert.equal(v2.getState().accounts.length, 1);
+  assert.equal(JSON.parse(mem.get('tamarin.v1')).phoneSeed, 3); // kaydedildi
+
+  // phoneSeed 3: hiçbir şey eklenmez (iPhone 12 silinmiş olsa bile).
+  mem.set('tamarin.v1', JSON.stringify({ version: 2, phoneSeed: 3, phones: [] }));
+  const v3 = await import(`../js/store.js?tohum3=${Date.now()}`);
+  assert.equal(v3.getState().phones.length, 0);
+
+  // Aynı numara elle eklenmişse (farklı adla) ikinci kez eklenmez; PIN boşsa tohumdan dolar.
+  mem.set('tamarin.v1', JSON.stringify({ version: 2, phoneSeed: 2, phones: [{ name: 'elle', number: fresh[0].number, pin: '' }] }));
+  const dup = await import(`../js/store.js?tohumcift=${Date.now()}`);
+  const same = dup.getState().phones.filter((p) => p.number === fresh[0].number);
+  assert.equal(same.length, 1);
+  assert.equal(same[0].name, 'elle');
+  assert.equal(same[0].pin, fresh[0].pin);
+
+  // Elle girilen PIN'e dokunulmaz.
+  mem.set('tamarin.v1', JSON.stringify({ version: 2, phoneSeed: 2, phones: [{ name: 'elle', number: fresh[0].number, pin: '4242' }] }));
+  const manual = await import(`../js/store.js?tohumpin=${Date.now()}`);
+  assert.equal(manual.getState().phones[0].pin, '4242');
 });
 
 await test('Business özeti: "8 hat · 14 hesap"; boşsa "Hat ve hesap ekle"', () => {

@@ -27,7 +27,7 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     telefon numarası biçimi ve doğal sıra (`formatPhone`, `sortPhones`, `MODEL_SHORT`); Business: özet
     (`bizSummary`), arama (`searchPhones`, `searchAccounts`; PIN'de aramaz), `accountGroups`, `accountsOf`,
     Telegram'ın alfabetik sırası (`sortByLabel`, localeCompare 'tr'), "Bunu Kasa'ya koy" sözcükleri (`vaultWords`)
-  - `js/phones-seed.js` — Baha'nın telefonları (ad, numara, SIM PIN, model, kılıf): açılışta bir kez eklenir
+  - `js/phones-seed.js` — Baha'nın telefonları (since, ad, numara, SIM PIN, model, kılıf): sürüm bazlı, her biri bir kez eklenir
   - `js/phone-art.js` — `phoneArt(model, color, cased, size)`: telefonun arkasının SVG işaretlemesi (DOM'suz);
     `phoneSilhouette(size)`: telefonsuz hesap için kesik çizgili boş siluet (`--pa-dash`)
   - `js/sound.js` — Web Audio ile sentezlenen tamarin sesleri
@@ -77,11 +77,13 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     `phoneId` bilinmeyen bir telefonu gösteriyorsa (yükleme, yedek, ekleme/güncelleme) "" olur; telefon
     silinince bağlı hesapların `phoneId`'si aynı değişiklikte "" olur (snapshot/restore "Geri al" ikisini
     birlikte getirir). TYPES'ta `accounts` `phones`'tan sonra. Hesaplarda örnek yok; yedeğe girer.
-  - `phoneSeed` (sayı): js/phones-seed.js'in eklenmiş sürümü. Açılışta `phoneSeed < SEED_VERSION` ise
-    uygulanır: ilk kez (0) numarası kayıtlı olmayan tohum telefonlar eklenir; sonraki sürümlerde telefon
-    eklenmez (silinen geri gelmez), yalnızca aynı numaralı telefonun PIN'i boşsa tohumdaki PIN yazılır
-    (elle girilen PIN'e dokunulmaz). Diğer kayıtlara dokunulmaz. "Tüm verileri sil" ve yedek yükleme
-    `phoneSeed`'i düşürmez. Tohum değişince `SEED_VERSION` artar.
+  - `phoneSeed` (sayı): js/phones-seed.js'in uygulanmış sürümü (şu an `SEED_VERSION` 3). Sürüm bazlı: her
+    tohum kaydının `since`'i eklendiği sürümdür (ilk 7 telefon 1, iPhone 12 3). Açılışta `phoneSeed <
+    SEED_VERSION` ise: `since > phoneSeed` olan ve numarası henüz kayıtlı olmayan telefonlar eklenir;
+    `since <= phoneSeed` olanlar (daha önce eklenmiş, kullanıcı silmiş olabilir) geri gelmez; aynı
+    numaralı telefonun PIN'i boşsa tohumdaki PIN yazılır (elle girilen PIN'e dokunulmaz). Sonra
+    `phoneSeed = SEED_VERSION`. Diğer kayıtlara dokunulmaz. "Tüm verileri sil" ve yedek yükleme `phoneSeed`'i
+    düşürmez. Yeni tohum telefonu: `since` = yeni sürüm, `SEED_VERSION` artar.
   - Örnek kayıtlar `ex: true` taşır; `cache` (hava) yedeğe girmez ve olay yayınlamaz.
 - **Veriye yazma yalnızca store API'siyle:** `add(type, item)`, `update(type, id, patch)`,
   `remove(type, id)`, `setField(key, value)`. Şemaya uymayan kayıt hata fırlatır; bozuk kayıtlı veri
@@ -196,9 +198,10 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     tamarin endişeli.
 - **Business (#business, js/modules/business.js + phones.js + accounts.js + js/biz-ui.js):** telefonlar/hatlar
   ve bu hatlarda açılmış Telegram, Bybit, OKX hesapları tek yerde, birbirine bağlı.
-  - Üstte arama kutusu (ad, numara — boşluklu/"+90" da —, kullanıcı adı, UID, bağlı telefon; PIN'de ARAMAZ;
-    Türkçe harf ve aksan fark etmez) ve dört parçalı seçici Telefonlar | Telegram | Bybit | OKX (her birinde
-    sayı; aramada eşleşen sayısı). Son sekme `ui.bizTab`; "+" etkin sekmenin formunu açar. Ekran rengi
+  - Sıra yukarıdan aşağı: "Business" başlığı (üst çubuk; bu ekranda opak, yüksekliği safe-area-inset-top +
+    56px, kayan içerik durum çubuğunun ve başlığın altına binmez) → dört parçalı seçici Telefonlar | Telegram |
+    Bybit | OKX (her birinde sayı; aramada eşleşen sayısı) → arama kutusu (ad, numara — boşluklu/"+90" da —,
+    kullanıcı adı, UID, bağlı telefon; PIN'de ARAMAZ; Türkçe harf ve aksan fark etmez) → liste. Son sekme `ui.bizTab`; "+" etkin sekmenin formunu açar. Ekran rengi
     pirinç. Store aboneliği `leave()`'de bırakılır, açık PIN'ler gizlenir, arama unutulur.
   - Telefonlar sekmesi: ada göre doğal sırada (faik2 < faik10, `sortPhones`); solda çizim (~40px), ad
     (kalın), altında "0555 000 00 01" (yoksa "Numara yok") ve o hattaki hesapların platform rozetleri

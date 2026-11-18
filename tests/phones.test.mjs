@@ -147,7 +147,8 @@ await test('tohum güncellemesi: boş PIN doldurulur, elle girilen PIN ve siline
   }));
   const up = await import(`../js/store.js?guncelle=${Date.now()}`);
   const phones = up.getState().phones;
-  assert.equal(phones.length, 2); // c silinmişti: geri gelmez
+  const newer = PHONE_SEED.filter((x) => x.since > SEED_VERSION - 1).length; // bu sürümde gelen yeni telefonlar
+  assert.equal(phones.length, 2 + newer); // c silinmişti: geri gelmez
   assert.equal(phones.find((p) => p.number === a.number).pin, a.pin);
   assert.equal(phones.find((p) => p.number === b.number).pin, '9999');
   assert.ok(!phones.some((p) => p.number === c.number));

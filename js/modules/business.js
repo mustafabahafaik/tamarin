@@ -110,9 +110,11 @@ export default {
     }, h('span', { class: 'biz-seg-name' }, TAB_TITLES[key]), h('span', { class: 'biz-seg-n' }, ''))));
     listEl = h('div', { class: 'biz-list' });
     root = h('div', { class: 'biz' },
+      // Sıra: başlık (üst çubuk) → sekme seçici → arama. Arama en üstte durunca kaydırırken durum çubuğunun
+      // ve başlığın altına giriyordu.
       h('div', { class: 'biz-tools' },
-        h('span', { class: 'v-search-wrap' }, icon('search', 'v-search-icon'), search),
-        seg),
+        seg,
+        h('span', { class: 'v-search-wrap' }, icon('search', 'v-search-icon'), search)),
       listEl);
     container.append(root);
     stop?.();
