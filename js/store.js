@@ -8,7 +8,7 @@ import { PHONE_SEED, SEED_VERSION } from './phones-seed.js';
 const KEY = 'tamarin.v1';
 const VERSION = 2;
 
-export const TYPES = ['bills', 'classes', 'exams', 'days', 'tasks', 'phones'];
+export const TYPES = ['bills', 'classes', 'exams', 'days', 'tasks', 'phones', 'accounts']; // accounts phones'tan sonra (bağ kontrolü)
 export const DEFAULT_CITY = Object.freeze({ name: 'Çanakkale', lat: 40.1553, lon: 26.4142 });
 export const BILL_CATS = ['Kira', 'Aidat', 'Telefon', 'İnternet', 'Elektrik', 'Su', 'Doğalgaz', 'Abonelik', 'Kredi kartı', 'Diğer'];
 
@@ -35,6 +35,9 @@ export const PRIORITIES = ['low', 'normal', 'high'];
 export const PHONE_MODELS = ['iPhone SE (2./3. nesil)', 'iPhone 7 Plus', 'iPhone 8', 'iPhone 12', 'Diğer'];
 export const CASE_COLORS = ['Siyah', 'Beyaz', 'Gri', 'Sarı', 'Turuncu', 'Kırmızı', 'Pembe', 'Mor', 'Mavi', 'Lacivert', 'Su yeşili', 'Yeşil', 'Kahverengi', 'Şeffaf'];
 export const MAX_EXTRA = 20;
+export const PLATFORMS = ['Telegram', 'Bybit', 'OKX'];
+export const ACCOUNT_STATUSES = ['Aktif', 'Doğrulanmamış', 'KYC tamam', 'Kısıtlı', 'Kapalı'];
+export const BIZ_TABS = ['telefonlar', 'telegram', 'bybit', 'okx'];
 
 /**
  * Telefon numarasını rakama çevirir: boşluk, tire, nokta ve parantez atılır; "+90" baştaki 0 olur.
@@ -198,7 +201,32 @@ const SHAPES = {
       extra: extraRows(x.extra),
     };
   },
+  // Hesap: şifre, 2FA anahtarı, yedek kod ya da kurtarma ifadesi alanı YOK (onlar Kasa'ya). Yalnızca
+  // tanınan alanlar alınır; başka anahtarlar (ör. password) atılır. phoneId'nin telefonu var mı, store bakar.
+  accounts: (x) => {
+    if (x.twofa != null && typeof x.twofa !== 'boolean') fail('twofa true/false olmalı');
+    if (x.phoneId != null && typeof x.phoneId !== 'string') fail('phoneId metin olmalı');
+    return {
+      platform: oneOf(x.platform, 'platform', PLATFORMS),
+      label: text(x.label, 'label', { required: true, max: 40 }),
+      phoneId: (x.phoneId ?? '').trim().slice(0, 64),
+      username: text(x.username, 'username', { max: 80 }),
+      uid: text(x.uid, 'uid', { max: 40 }),
+      status: oneOf(x.status, 'status', ACCOUNT_STATUSES, 'Aktif'),
+      twofa: x.twofa === true,
+      note: text(x.note, 'note', { max: 1000 }),
+      extra: extraRows(x.extra),
+    };
+  },
 };
+
+/** Bilinmeyen telefona bağlı hesapların bağını koparır (phoneId ""). Değişmediyse aynı liste döner. */
+function linkAccounts(accounts, phones) {
+  const ids = new Set(phones.map((p) => p.id));
+  return accounts.some((a) => a.phoneId && !ids.has(a.phoneId))
+    ? accounts.map((a) => (a.phoneId && !ids.has(a.phoneId) ? { ...a, phoneId: '' } : a))
+    : accounts;
+}
 
 const FIELDS = {
   name: (v) => text(v, 'name', { required: true, max: 40 }),
@@ -221,7 +249,10 @@ const FIELDS = {
   // js/phones-seed.js'teki telefonların hangi sürümü eklendi (0 = hiç). Silinen telefon geri gelmesin diye.
   phoneSeed: (v) => (Number.isInteger(v) && v >= 0 ? v : 0),
   // Arayüz tercihleri (ör. Eğitim'de son seçili sekme)
-  ui: (v) => ({ schoolTab: v?.schoolTab === 'exams' ? 'exams' : 'schedule' }),
+  ui: (v) => ({
+    schoolTab: v?.schoolTab === 'exams' ? 'exams' : 'schedule',
+    bizTab: BIZ_TABS.includes(v?.bizTab) ? v.bizTab : 'telefonlar',
+  }),
   // Takvim aktarımı (js/ics.js): kayıt başına son aktarılan halin hash'i ve Ayarlar'daki "Son aktarma" satırı.
   calendar: (v) => {
     const exported = {};
@@ -263,10 +294,10 @@ function defaults() {
     city: { ...DEFAULT_CITY },
     semesterEnd: '',
     sound: { on: true, volume: 0.7 },
-    bills: [], classes: [], exams: [], days: [], tasks: [], phones: [],
+    bills: [], classes: [], exams: [], days: [], tasks: [], phones: [], accounts: [],
     exNoticeClosed: false,
     phoneSeed: 0,
-    ui: { schoolTab: 'schedule' },
+    ui: { schoolTab: 'schedule', bizTab: 'telefonlar' },
     calendar: { exported: {}, last: null },
     cache: {},
   };
@@ -298,6 +329,7 @@ function normalizeState(raw, { strict = false } = {}) {
       }
     });
   }
+  state.accounts = linkAccounts(state.accounts, state.phones); // bilinmeyen phoneId → ""
   if (!strict && raw.cache && typeof raw.cache === 'object' && !Array.isArray(raw.cache)) state.cache = raw.cache;
   return { state, errors };
 }
@@ -346,7 +378,8 @@ function examples() {
       { title: 'Market alışverişi', date: ymd(today), time: '18:00', remind: '60', prio: 'normal', note: '', done: false, ex: true },
       { title: 'Kütüphaneye kitap iade', date: ymd(on(1)), time: '', remind: '1440', prio: 'high', note: '', done: false, ex: true },
     ],
-    phones: [], // telefonlarda örnek yok
+    phones: [], // telefonlarda ve hesaplarda örnek yok
+    accounts: [],
   };
 }
 
@@ -473,10 +506,16 @@ function assertType(type) {
 /** Yeni kayıt ekler; şemaya uymuyorsa hata fırlatır. Eklenen (temizlenmiş) kaydı döndürür. */
 export function add(type, item) {
   assertType(type);
-  const clean = normalize(type, { ...item, id: undefined });
+  const clean = linked(type, normalize(type, { ...item, id: undefined }));
   state = { ...state, [type]: [...state[type], clean] };
   commit({ type, action: 'add', id: clean.id });
   return clean;
+}
+
+/** Hesabın phoneId'si var olan bir telefona değilse "" olur. */
+function linked(type, clean) {
+  if (type !== 'accounts' || !clean.phoneId || state.phones.some((p) => p.id === clean.phoneId)) return clean;
+  return { ...clean, phoneId: '' };
 }
 
 /** Kaydı günceller (patch birleştirilir). Güncellenmiş kaydı döndürür. */
@@ -484,7 +523,7 @@ export function update(type, id, patch) {
   assertType(type);
   const index = state[type].findIndex((x) => x.id === id);
   if (index < 0) throw new Error(`${type} içinde ${id} yok`);
-  const clean = normalize(type, { ...state[type][index], ...patch, id });
+  const clean = linked(type, normalize(type, { ...state[type][index], ...patch, id }));
   const items = [...state[type]];
   items[index] = clean;
   state = { ...state, [type]: items };
@@ -492,12 +531,14 @@ export function update(type, id, patch) {
   return clean;
 }
 
-/** Kaydı siler; silinen kaydı döndürür (yoksa null). */
+/** Kaydı siler; silinen kaydı döndürür (yoksa null). Telefon silinince bağlı hesapların phoneId'si "" olur
+ *  (aynı değişiklikte; snapshot/restore ikisini birlikte geri getirir). */
 export function remove(type, id) {
   assertType(type);
   const item = state[type].find((x) => x.id === id) ?? null;
   if (!item) return null;
   state = { ...state, [type]: state[type].filter((x) => x.id !== id) };
+  if (type === 'phones') state = { ...state, accounts: linkAccounts(state.accounts, state.phones) };
   commit({ type, action: 'remove', id });
   return item;
 }

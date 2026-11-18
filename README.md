@@ -22,8 +22,11 @@ web uygulaması (PWA). Ödemeleri, ders programını, sınavları, doğum günle
 - **Ajanda:** "yarın 14:00 dişçi" gibi Türkçe yazıdan tarih ve saati anlayan hızlı ekleme, gruplu liste,
   kaydırarak silme ve erteleme.
 - **Şifre kasası:** uygulama şifreleri için ana şifreyle açılan, şifreli bir kasa.
-- **Telefonlar:** telefonlar, hatları ve SIM PIN'leri tek yerde; her telefon modeline ve kılıf rengine göre
-  çizilir. PIN listede görünmez, istenince kısa süre gösterilir ve kopyalanınca panodan silinir.
+- **Business:** ana ekrandaki Business butonuyla açılır. Telefonlar, hatları ve SIM PIN'leri ile bu hatlarda
+  açılmış Telegram, Bybit ve OKX hesapları tek yerde ve birbirine bağlı: telefonda "Bu hatta" hangi hesapların
+  olduğu, hesapta hangi telefona bağlı olduğu görünür. Ad, numara, kullanıcı adı ve UID'de arama. Telefonlar
+  modeline ve kılıf rengine göre çizilir. PIN listede görünmez, istenince kısa süre gösterilir ve kopyalanınca
+  panodan silinir. Hesap şifreleri, 2FA anahtarları ve kurtarma ifadeleri burada tutulmaz; Kasa'ya konur.
 - **Takvime aktarma:** kayıtları iPhone Takvimi'ne `.ics` olarak gönderir; hatırlatmaları Takvim verir.
 - **Yedek:** tüm kayıtlar tek bir JSON dosyasına alınır ve geri yüklenir.
 
@@ -59,7 +62,7 @@ değişmiş kayıtları gönderir.
   tekrar, rastgele salt) ile anahtar türetilir, kayıtlar **AES-GCM 256** ile şifrelenir. Ana şifre ve
   şifrelerin düz hali hiçbir yere yazılmaz; kasa ana yedeğe girmez ve uygulama arka plana geçince kilitlenir.
   Ana şifreyi unutursan kasadaki şifreler kurtarılamaz.
-- **SIM PIN'leri** (Telefonlar) kasa gibi şifrelenmez: diğer kayıtlarla birlikte cihazın yerel deposunda
+- **SIM PIN'leri ve hesap bilgileri** (Business) kasa gibi şifrelenmez: diğer kayıtlarla birlikte cihazın yerel deposunda
   durur ve yedek dosyasına girer. Yedek dosyasını güvenli bir yerde sakla.
 
 ## Geliştirme
@@ -68,7 +71,7 @@ Framework ve derleme adımı yok: saf HTML, CSS ve JavaScript modülleri.
 
 ```bash
 node tools/serve.mjs          # http://localhost:5190/tamarin/  (telefondan bakmak için --lan)
-node tests/vault.test.mjs     # diğerleri: bills, school, days, tasks, ics, phones
+node tests/vault.test.mjs     # diğerleri: bills, school, days, tasks, ics, phones, business
 ```
 
 ## Görseller

@@ -748,3 +748,97 @@ const phoneCollator = new Intl.Collator('tr-TR', { numeric: true, sensitivity: '
 export function sortPhones(phones) {
   return [...phones].sort((a, b) => phoneCollator.compare(a.name, b.name) || a.number.localeCompare(b.number));
 }
+
+/* ---------- Business: hatlar ve hesaplar ---------- */
+
+/** Ana ekrandaki Business butonunun özeti: "8 hat · 14 hesap". */
+export function bizSummary(state) {
+  const phones = state.phones?.length ?? 0;
+  const accounts = state.accounts?.length ?? 0;
+  if (!phones && !accounts) return 'Hat ve hesap ekle';
+  return `${phones} hat · ${accounts} hesap`;
+}
+
+// Arama ve uyarı için sadeleştirme: Türkçe küçük harf, ı → i, aksanlar atılır ("FAIK" = "faik", "şifre" = "sifre").
+const fold = (s) => (typeof s === 'string'
+  ? s.toLocaleLowerCase('tr-TR').replace(/ı/g, 'i').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  : '');
+
+/** Arama sorgusu: küçük harfli metin ve (en az 3 rakamsa) yalnızca rakamları ("0531 765" → "0531765"). */
+function query(q) {
+  const textQ = fold(q).trim();
+  const digits = textQ.replace(/[\s\-().+]/g, '');
+  return { text: textQ, digits: /^\d{3,}$/.test(digits) ? digits : '' };
+}
+
+const hitText = (q, ...values) => values.some((v) => fold(v).includes(q.text));
+const hitNumber = (q, number) => !!q.digits && !!number && (number.includes(q.digits) || (q.digits.startsWith('90') && number.includes(`0${q.digits.slice(2)}`)));
+
+/** Hesap aramada eşleşiyor mu: etiket, kullanıcı adı, UID, bağlı telefonun adı/numarası. PIN'de ARAMAZ. */
+function accountHit(q, account, phone) {
+  return hitText(q, account.label, account.username, account.uid, phone?.name) || hitNumber(q, phone?.number);
+}
+
+/**
+ * Telefon araması: ad, numara ve o hattaki hesapların etiket/kullanıcı adı/UID'si. PIN'de ARAMAZ.
+ * Boş sorgu → hepsi (doğal sırada).
+ */
+export function searchPhones(phones, accounts, q) {
+  const sorted = sortPhones(phones);
+  const qq = query(q);
+  if (!qq.text) return sorted;
+  return sorted.filter((p) => hitText(qq, p.name, p.number) || hitNumber(qq, p.number)
+    || accounts.some((a) => a.phoneId === p.id && accountHit(qq, a, null)));
+}
+
+/** Hesap araması (tek platform ya da hepsi): etiket, kullanıcı adı, UID, bağlı telefon. PIN'de ARAMAZ. */
+export function searchAccounts(accounts, phones, q, platform = null) {
+  const byId = new Map(phones.map((p) => [p.id, p]));
+  const qq = query(q);
+  return accounts.filter((a) => (!platform || a.platform === platform) && (!qq.text || accountHit(qq, a, byId.get(a.phoneId))));
+}
+
+/**
+ * Bir platformun hesap listesi: bağlı telefonu olanlar telefonun doğal sırasıyla (aynı telefonda etikete göre),
+ * telefonu olmayanlar sonda "Hat yok" grubunda. [{ title: '' | 'Hat yok', items }]
+ */
+export function accountGroups(accounts, phones) {
+  const order = new Map(sortPhones(phones).map((p, i) => [p.id, i]));
+  const byLabel = (a, b) => phoneCollator.compare(a.label, b.label);
+  const linked = accounts.filter((a) => order.has(a.phoneId)).sort((a, b) => order.get(a.phoneId) - order.get(b.phoneId) || byLabel(a, b));
+  const loose = accounts.filter((a) => !order.has(a.phoneId)).sort(byLabel);
+  return [{ title: '', items: linked }, { title: 'Hat yok', items: loose }].filter((g) => g.items.length);
+}
+
+/** Bir telefondaki hesaplar: platform sırası (Telegram, Bybit, OKX), sonra etiket. */
+export function accountsOf(accounts, phoneId) {
+  const rank = { Telegram: 0, Bybit: 1, OKX: 2 };
+  return accounts.filter((a) => a.phoneId === phoneId)
+    .sort((a, b) => rank[a.platform] - rank[b.platform] || phoneCollator.compare(a.label, b.label));
+}
+
+/** "Bybit 3" gibi bir sonraki etiket önerisi. */
+export function nextLabel(accounts, platform) {
+  const nums = accounts.filter((a) => a.platform === platform)
+    .map((a) => (fold(a.label).startsWith(fold(platform)) ? Number(a.label.slice(platform.length).trim()) : NaN))
+    .filter(Number.isInteger);
+  const count = accounts.filter((a) => a.platform === platform).length;
+  return `${platform} ${Math.max(count, ...nums, 0) + 1}`;
+}
+
+// Kasa'ya gitmesi gereken bilgiler: şifre, 2FA anahtarı, yedek kod, seed / kurtarma ifadesi, API anahtarı.
+const VAULT_WORDS = [
+  ['şifre', /sifre/], ['parola', /parola/], ['password', /pass(word|wd)|\bpass\b|\bpw\b/],
+  ['2FA anahtarı', /2fa ?(key|anahtar|kod|secret)|authenticator (key|anahtar)|\btotp\b|\botp (key|anahtar)/],
+  ['yedek kod', /yedek kod|backup code|recovery code/], ['seed', /\bseed\b|mnemonic|kurtarma (ifade|kelime|cumle)|recovery phrase/],
+  ['gizli anahtar', /secret|gizli anahtar|private key|ozel anahtar/], ['API anahtarı', /api ?(key|anahtar)/],
+];
+
+/**
+ * Not ve Ek bilgiler'de Kasa'ya gitmesi gereken bir şey var mı: bulunan türler (yoksa []).
+ * Yalnızca uyarı içindir; kayda engel olmaz.
+ */
+export function vaultWords(note, extra = []) {
+  const haystack = fold([note, ...extra.flatMap((x) => [x?.label, x?.value])].filter(Boolean).join('\n'));
+  return VAULT_WORDS.filter(([, re]) => re.test(haystack)).map(([name]) => name);
+}

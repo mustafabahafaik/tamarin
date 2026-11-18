@@ -11,7 +11,7 @@ import { exportToCalendar, pendingCount, METHOD_LABELS } from './ics.js';
 import { playCall } from './sound.js';
 import { searchCities, PREVIEWS, getPreview, setPreview } from './weather.js';
 
-const LABELS = { bills: 'fatura', classes: 'ders', exams: 'sınav', days: 'özel gün', tasks: 'görev', phones: 'telefon' };
+const LABELS = { bills: 'fatura', classes: 'ders', exams: 'sınav', days: 'özel gün', tasks: 'görev', phones: 'telefon', accounts: 'hesap' };
 const MAX_BACKUP = 2 * 1024 * 1024;
 
 /** "4 fatura · 4 ders · 2 sınav" */

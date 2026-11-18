@@ -22,16 +22,21 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - `js/ics.js` — iPhone Takvimi'ne aktarma: RFC 5545 üretimi, kayıt türü kuralları, hash, paylaş / data: / indir
   - `js/weather.js` — hava durumu (tahmin, önbellek, şehir arama, WMO → Türkçe, efekt "sahnesi")
   - `js/weather-fx.js` — içeriğin arkasındaki tam ekran hava efekti canvas'ı
-  - `js/face.js` — ana ekran yüzü (başlık, halka, tamarin, "Bugün" şeridi, zil/tahmin/kayıt sheet'leri)
+  - `js/face.js` — ana ekran yüzü (başlık, halka, tamarin, Business butonu, "Bugün" şeridi, zil/tahmin/kayıt sheet'leri)
   - `js/status.js` — durum: acil olanlar, yaklaşanlar listesi, alttaki yazı, tamarinin ruh hali;
-    telefon numarası biçimi ve doğal sıra (`formatPhone`, `sortPhones`, `MODEL_SHORT`)
+    telefon numarası biçimi ve doğal sıra (`formatPhone`, `sortPhones`, `MODEL_SHORT`); Business: özet
+    (`bizSummary`), arama (`searchPhones`, `searchAccounts`; PIN'de aramaz), `accountGroups`, `accountsOf`,
+    `nextLabel`, "Bunu Kasa'ya koy" sözcükleri (`vaultWords`)
   - `js/phones-seed.js` — Baha'nın telefonları (ad, numara, SIM PIN, model, kılıf): açılışta bir kez eklenir
   - `js/phone-art.js` — `phoneArt(model, color, cased, size)`: telefonun arkasının SVG işaretlemesi (DOM'suz)
   - `js/sound.js` — Web Audio ile sentezlenen tamarin sesleri
   - `js/settings.js` — Ayarlar ekranı (sol üstteki kullanıcıya dokununca açılan sheet)
-  - `js/modules/*.js` — `bills`, `school`, `days`, `tasks`, `vault` (şifre kasası ekranı), `phones` (Telefonlar)
+  - `js/modules/*.js` — `bills`, `school`, `days`, `tasks`, `vault` (şifre kasası ekranı), `business` (Business
+    ekranı: sekmeler, arama, listeler), `phones` (telefon satırı/ayrıntı/form), `accounts` (hesap satırı/ayrıntı/form)
+  - `js/biz-ui.js` — Business'ın ortak parçaları: çizgi ikonlar, pano (30 sn sonra silinir), açık PIN'leri
+    gizleme, Ek bilgiler düzenleyicisi, platform rozeti (`badge`), "Bunu Kasa'ya koy" uyarısı (`vaultGuard`)
   - `js/vault.js` — kasa çekirdeği: Web Crypto ile şifreleme, kilit, otomatik kilit, şifre üretici
-  - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`, `phones`: `node tests/<ad>.test.mjs`);
+  - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`, `phones`, `business`: `node tests/<ad>.test.mjs`);
     `tests/fixtures/ornek.ics` örnek takvim (`.gitattributes`: `-text`, CRLF bayt bayt korunur)
   - `manifest.webmanifest`, `sw.js`, `icons/`
   - `README.md`, `docs/ekran-goruntusu.webp` (README görseli), `.nojekyll` (Pages dosyaları işlemesin)
@@ -46,7 +51,8 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
 - **Veri:** localStorage, `"tamarin.v1"` anahtarında tek state nesnesi (js/store.js). Bildirimler
   iPhone Takvimi'ne `.ics` aktarımıyla; hava durumu Open-Meteo'dan. Şema (alanların kuralları
   store.js'teki `SHAPES`'te):
-  - `{ version: 2, name, city: {name, lat, lon}, semesterEnd, sound: {on, volume 0–1}, bills, classes, exams, days, tasks, phones, exNoticeClosed, phoneSeed, ui: {schoolTab}, calendar, cache }`
+  - `{ version: 2, name, city: {name, lat, lon}, semesterEnd, sound: {on, volume 0–1}, bills, classes, exams, days, tasks, phones, accounts, exNoticeClosed, phoneSeed, ui: {schoolTab, bizTab}, calendar, cache }`
+    (`ui.bizTab`: Business'ın son sekmesi, telefonlar/telegram/bybit/okx; varsayılan telefonlar)
   - calendar `{exported: {"<tür>:<id>": hash}, last: {at, method, count, note} | null}` (js/ics.js yazar)
   - bill `{id, name, cat, amount, day (1–31; kısa ayda son güne kırpılır), note, paid: ["2026-11", …]}`;
     cat: Kira / Aidat / Telefon / İnternet / Elektrik / Su / Doğalgaz / Abonelik / Kredi kartı / Diğer
@@ -62,6 +68,14 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     boşsa Diğer), color (CASE_COLORS, 14 renk; boşsa Siyah), cased (boolean, varsayılan true), note (≤ 1000),
     extra: [{label ≤ 40, value ≤ 200}] (boş satırlar atılır, en çok 20)}`. Yeni tür olduğu için VERSION
     2 kaldı; eski kayıtta `phones` yoksa boş liste. Telefonlarda örnek kayıt yok; yedeğe girer.
+  - account `{id, platform (PLATFORMS: Telegram / Bybit / OKX), label (zorunlu, ≤ 40; ör. "Bybit 3"), phoneId
+    (bir telefonun id'si ya da ""), username (≤ 80; Telegram'da @kullanıcıadı, borsada e-posta), uid (≤ 40),
+    status (ACCOUNT_STATUSES: Aktif / Doğrulanmamış / KYC tamam / Kısıtlı / Kapalı; boşsa Aktif), twofa
+    (boolean: yalnızca 2FA açık mı, anahtar DEĞİL), note (≤ 1000), extra (telefonla aynı kurallar)}`.
+    Şifre, 2FA anahtarı, yedek kod, seed/kurtarma ifadesi alanı YOK; şemada olmayan anahtarlar atılır.
+    `phoneId` bilinmeyen bir telefonu gösteriyorsa (yükleme, yedek, ekleme/güncelleme) "" olur; telefon
+    silinince bağlı hesapların `phoneId`'si aynı değişiklikte "" olur (snapshot/restore "Geri al" ikisini
+    birlikte getirir). TYPES'ta `accounts` `phones`'tan sonra. Hesaplarda örnek yok; yedeğe girer.
   - `phoneSeed` (sayı): js/phones-seed.js'in eklenmiş sürümü. Açılışta `phoneSeed < SEED_VERSION` ise
     uygulanır: ilk kez (0) numarası kayıtlı olmayan tohum telefonlar eklenir; sonraki sürümlerde telefon
     eklenmez (silinen geri gelmez), yalnızca aynı numaralı telefonun PIN'i boşsa tohumdaki PIN yazılır
@@ -80,13 +94,20 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - Üst alan: solda kullanıcı ikonu + saate göre selamlama ("Günaydın, Baha") ve tarih (dokununca
     Ayarlar), sağda büyük sıcaklık + durum + ↑/↓ ve hava ikonu (dokununca 4 günlük tahmin), en sağda
     zil. Altında tek satır ipucu: yağış > %50, > 30°, < 5°, rüzgar > 25 km/s; yoksa gün doğumu/batımı.
-    Zilin solunda iki küçük bağlantı: telefon (#telefonlar) ve kilit (#kasa), 30px genişlik.
+    Zilin solunda iki küçük bağlantı: telefon (#business/telefonlar) ve kilit (#kasa), 30px genişlik.
     İsim kesilmez: sığmazsa selamdan sonra ikinci satıra iner (`.greet-hello` / `.greet-name`; 375px'te
     "Günaydın, Baha" da iner). `.who` 4px aşağıda `position: relative` ile durur, yerleşimde yer kaplamaz:
     iki satırlı selam bile hava sütunundan (≈60px) en çok ~1px uzun, başlık yüksekliği değişmez.
   - Ortada 4 dilimli mat halka — sol üst Ödemeler (kiremit, cüzdan), sağ üst Eğitim (arduvaz mavisi,
     kep), sol alt Özel Günler (gül kurusu, kalp), sağ alt Ajanda (adaçayı, takvim) — ve ortada tamarin.
     Altında tamarinin durum yazısı: acil bir şey yoksa havaya göre konuşur.
+  - Business butonu: durum yazısıyla "Bugün" şeridi arasında (alt alanın üstünde), ekran genişliğine
+    yakın, 44px yüksek, yuvarlak köşeli; solda ince çizgili çanta, "Business", sağda özet ("8 hat · 14 hesap",
+    `bizSummary`) ve ›. Dokununca #business. Renk beşinci mat ton eski pirinç (`--biz-1..3`,
+    `[data-cat="business"]`), dilimlerle aynı malzeme: aynı rengin tonları arasında hafif geçiş, parlama yok.
+    Yüz ızgara düzeninde (başlık | halka alanı | Business | Bugün); halka alanı kalan yüksekliği alır ve
+    boyut kabıdır (`container-type: size`): halka 100cqh'ye göre küçülür, 375×667'de örnek veri
+    bildirimiyle bile "Bugün" kartları görünür (`--biz-h` eski formülde de düşülür).
   - Alt alan: "Bugün" şeridi — küçük örnek veri bildirimi ve yatay kayan kartlar (sıradaki ders,
     bugünkü görevler, en acil ödeme, yaklaşan sınav/özel gün; kategori renginde ince kenar + ikon).
     Karta dokununca kaydın ayrıntısı açılır. Boşsa "Bugün boşsun Baha, keyfine bak".
@@ -105,7 +126,10 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   (`.face-stage`) `--u`'yu kendi ölçeğiyle yeniden tanımlar: uzun ekranda halka genişliğe göre
   büyür (iki yanda 28px), başlık ve alt yazı tasarım boyutunda kalır.
 - **Hash routing:** `#odemeler`, `#egitim`, `#gunler`, `#ajanda`, `#kasa` (zilin yanındaki kilit
-  ikonu), `#telefonlar` (kilidin solundaki ince telefon ikonu); boş hash = yüz. Ekran `leave()` tanımlarsa router ayrılırken çağırır; "+" ekranın `onAdd()`'ını
+  ikonu), `#business` (sekmeler `#business/telefonlar`, `/telegram`, `/bybit`, `/okx`; kilidin solundaki
+  telefon ikonu `#business/telefonlar`); eski `#telefonlar` → `#business/telefonlar`; boş hash = yüz.
+  "/" sonrası alt adres: `render(body, sub)`; aynı ekranda yalnızca alt adres değişirse `subroute(sub)`
+  (ekran yeniden kurulmaz; sekme değişimi `location.replace`, geçmişe eklenmez). Ekran `leave()` tanımlarsa router ayrılırken çağırır; "+" ekranın `onAdd()`'ını
   açar, `fab: false` ise "+" gösterilmez. Modül store'a abone olursa `leave()`'de bırakır.
 - **Ödemeler (#odemeler, js/modules/bills.js):** Üstte ay özeti (toplam/ödenen/kalan, "3/5 ödendi",
   turuncu çubuk; hepsi ödenince yeşil ve "Bu ayki tüm ödemeler tamam") ve ‹ ay › değiştirici. Satır:
@@ -169,22 +193,47 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - Form: başlık, tarih (aynı çipler + Tarihsiz), saat, hatırlatma, önem, not; ertele ve iki dokunuşla sil.
   - Yeşil dilim özeti: "1 gecikmiş" / "Bugün 3 iş" / "Bugün boş" (açık iş var) / "Boş". Gecikmiş iş varsa
     tamarin endişeli.
-- **Telefonlar (#telefonlar, js/modules/phones.js):** 8 iPhone, hatları ve SIM PIN'leri tek yerde.
-  - Liste ada göre doğal sırada (faik2 < faik10, `sortPhones`): solda telefon çizimi (~40px), ad (kalın),
-    altında "0555 000 00 01" (yoksa "Numara yok"), sağda renk noktası + kısa model ("SE", "7 Plus", "8",
-    "12"). Boşsa çizim + "Telefonlarını ekle".
-  - Ayrıntı sheet'i: büyük çizim, ad, model, sağ üstte düzenle kalemi; numara satırında "Ara" (`tel:`) ve
-    "Kopyala"; "SIM PIN ••••" satırı; model, kılıf rengi (kılıfsızsa "Renk"), not, Ek bilgiler (etiket: değer).
-  - Form: canlı çizim önizlemesi, ad, numara (`inputmode="tel"`; alandan çıkınca biçimlenir), PIN, model
+- **Business (#business, js/modules/business.js + phones.js + accounts.js + js/biz-ui.js):** telefonlar/hatlar
+  ve bu hatlarda açılmış Telegram, Bybit, OKX hesapları tek yerde, birbirine bağlı.
+  - Üstte arama kutusu (ad, numara — boşluklu/"+90" da —, kullanıcı adı, UID, bağlı telefon; PIN'de ARAMAZ;
+    Türkçe harf ve aksan fark etmez) ve dört parçalı seçici Telefonlar | Telegram | Bybit | OKX (her birinde
+    sayı; aramada eşleşen sayısı). Son sekme `ui.bizTab`; "+" etkin sekmenin formunu açar. Ekran rengi
+    pirinç. Store aboneliği `leave()`'de bırakılır, açık PIN'ler gizlenir, arama unutulur.
+  - Telefonlar sekmesi: ada göre doğal sırada (faik2 < faik10, `sortPhones`); solda çizim (~40px), ad
+    (kalın), altında "0555 000 00 01" (yoksa "Numara yok") ve o hattaki hesapların platform rozetleri
+    (platform başına bir rozet, birden çoksa sayı), sağda renk noktası + kısa model. Boşsa çizim +
+    "Telefonlarını ekle".
+  - Telefon ayrıntısı: büyük çizim, ad, model, düzenle kalemi; numara "Ara" (`tel:`) ve "Kopyala"; "SIM PIN
+    ••••"; model, kılıf rengi (kılıfsızsa "Renk"), not, Ek bilgiler; "Bu hatta" (bağlı hesaplar, dokununca
+    hesabın ayrıntısı) ve "Bu hatta hesap ekle" (Telegram / Bybit / OKX: platformu ve phoneId'si dolu form).
+  - Telegram / Bybit / OKX sekmeleri: satırda platform rozeti, etiket, kullanıcı adı/e-posta, sağda durum
+    etiketi (Aktif patina, KYC tamam yeşil, Kısıtlı turuncu, Kapalı soluk ve satır soluk, Doğrulanmamış nötr)
+    ve bağlı telefonun küçük çizimi + adı. Sıra bağlı telefonun doğal sırası, sonra etiket (`accountGroups`);
+    telefonu olmayanlar altta "Hat yok" grubunda. Boşsa rozet + "Telegram hesaplarını ekle" vb.
+  - Hesap ayrıntısı: büyük rozet, etiket, platform, düzenle kalemi; kullanıcı adı / e-posta (Kopyala), UID /
+    Telegram ID (Kopyala), durum, 2FA Açık/Kapalı, bağlı telefon (dokununca telefonun ayrıntısı), not, Ek
+    bilgiler, "Şifresi Kasa'da" → #kasa.
+  - Hesap formu: platform (`pickGrid`, rozetli), etiket (boşsa öneri `nextLabel`: "Bybit 3"), telefon seçici
+    (iki sütun, çizimli; "Hat yok" dahil), kullanıcı adı (Telegram `@kullaniciadi`, borsada e-posta), UID,
+    durum çipleri, 2FA Açık/Kapalı, not, Ek bilgiler (öneri çipleri Kayıt tarihi, Referans kodu, Ülke).
+    Silme formda, iki dokunuş + "Geri al".
+  - **Kasa'ya gidecekler:** hesapta şifre, 2FA anahtarı, yedek kod, seed / kurtarma ifadesi, API anahtarı
+    tutulmaz. Not ya da Ek bilgiler'de böyle bir şey varsa (`vaultWords`: şifre, parola, password, 2FA
+    key/anahtar, yedek kod, seed, kurtarma ifadesi, secret, API key…) formda "Bunu Kasa'ya koy" uyarısı
+    çıkar (`vaultGuard`; telefon formunda da). Engellemez: ilk "Kaydet"te uyarı öne çıkar, buton "Yine de
+    kaydet" olur, ikinci dokunuş kaydeder.
+  - Platform rozetleri resmi logo değil: yuvarlak rozette baş harf (T / B / O), mat tonlar `--pf-telegram`
+    (soluk gök mavisi), `--pf-bybit` (kehribar), `--pf-okx` (kül); harf koyu (`--on-badge`).
+  - Telefon formu: canlı çizim önizlemesi, ad, numara (`inputmode="tel"`; alandan çıkınca biçimlenir), PIN, model
     (`pickGrid`, ikonları seçili renk/kılıfla `phoneArt`), Kılıflı/Kılıfsız, renk yuvarlakları, not, Ek
     bilgiler (satır ekle/sil; öneri çipleri Operatör, Tarife, IMEI, PUK, Alış tarihi, Garanti, Kimde).
-    Silme formda, iki dokunuş + "Geri al". Ekran rengi kum (`--phones-1..3`, `[data-cat="phones"]`).
+    Silme formda, iki dokunuş + "Geri al"; bağlı hesapların hattı boşalır, toast bunu söyler, "Geri al" ikisini getirir.
   - **PIN kuralları:** listede, toast'ta, konsolda, URL'de ve hata mesajlarında PIN hiç yok (store hata
     mesajları değeri içermez). Ayrıntıda uzunluğu da belli etmeyen "••••"; göz ikonuyla görünür, 30 sn
     sonra, sheet kapanınca, ekrandan çıkınca (`leave`) ve uygulama arka plana geçince (`visibilitychange`
     hidden, `pagehide`) yeniden gizlenir. "Kopyala" panoya yazar, 30 sn sonra `writeText("")` (başarısızsa
     sessiz). Formdaki PIN alanı `type=password` + göz, `inputmode="numeric"`, `autocomplete="off"`; form
-    kapanınca alan boşaltılır. `phones.js`'te `console.*` yok. PIN ana store'da (şifresiz) durur ve
+    kapanınca alan boşaltılır. Aramaya girmez. `phones.js`, `accounts.js`, `business.js`, `biz-ui.js`'te `console.*` yok. PIN ana store'da (şifresiz) durur ve
     ana yedeğe girer; kasa gibi şifrelenmez.
   - Çizim (js/phone-art.js): SE ve 8 aynı gövde (sol üstte tek kamera + yanında flaş), 7 Plus daha büyük
     gövde + yatay hap şeklinde çift kamera + flaş, 12 düz kenarlı gövde + kare adada çapraz iki kamera +
@@ -215,8 +264,8 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   input font-size en az 16px (iOS'un otomatik yakınlaştırmasını engeller).
 - **Tema "Toprak":** Tek ve koyu; açık tema yok. Sıcak, neredeyse siyah zemin (`--bg` #16120f,
   ortada sabit hafif aydınlık), krem yazı. Kategori tonları mat ve doğal: ödemeler kiremit, eğitim
-  arduvaz mavisi, özel günler gül kurusu, ajanda adaçayı (`--bills-1..3`, `--school-*`, `--days-*`,
-  `--tasks-*`; 1/2/3 aynı rengin hafif ışık farkı). Ana renk patina turkuazı (`--accent`). Tüm
+  arduvaz mavisi, özel günler gül kurusu, ajanda adaçayı, Business eski pirinç (`--bills-1..3`, `--school-*`,
+  `--days-*`, `--tasks-*`, `--biz-*`; 1/2/3 aynı rengin hafif ışık farkı). Ana renk patina turkuazı (`--accent`). Tüm
   renkler CSS değişkeni (`:root`). Modül ekranları, sheet'ler ve ikonlar aynı paleti kullanır.
 - **"Yapay zekâ işi" görünmesin:** Neon parlama, renkli/bulanık ışık lekeleri, parıltı çizgileri ve
   doygun gökkuşağı degradeleri yok. İstisnalar yalnızca: acil dilimin çevresinde nabız gibi atan
@@ -270,7 +319,10 @@ harfiyen uyulur, gevşetilmez:
   algılama, gruplama, erteleme, gecikme, tamamlananlar, dilim özeti), `node tests/ics.test.mjs` (satır
   katlama, kaçış, CRLF, RRULE'ler ve ay sonu kayması, 29 Şubat, UNTIL, alarmlar, teslim zinciri, hash;
   örnek dosyayı yenilemek için `UPDATE_FIXTURES=1`), `node tests/phones.test.mjs` (numara temizleme ve
-  biçimi, PIN'de baştaki 0, geçersiz numara/PIN, model/renk, ek bilgi sınırları, doğal sıra, yedek, çizim).
+  biçimi, PIN'de baştaki 0, geçersiz numara/PIN, model/renk, ek bilgi sınırları, doğal sıra, yedek, çizim),
+  `node tests/business.test.mjs` (numara/PIN, model/renk/platform/durum, gizli alanların atılması, ek bilgi
+  sınırları, doğal sıra ve "Hat yok", telefon silinince bağın kopması + Geri al, bilinmeyen phoneId, arama
+  ve PIN'de aramama, yedek, ui.bizTab, "Bunu Kasa'ya koy" sözcükleri, Business özeti).
 - Izgara içindeki yatay kayan şeritler sayfayı genişletmesin: kapsayıcıya
   `grid-template-columns: minmax(0, 1fr)` ya da `min-width: 0` ver; 375px'te `scrollWidth` kontrol et.
 - Yayın: GitHub Pages, `main` dalının kökü → https://mustafabahafaik.github.io/tamarin/. Depo herkese açık:

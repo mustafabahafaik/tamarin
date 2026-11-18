@@ -49,8 +49,14 @@
   --confetti-3: var(--bills-1);
   --confetti-4: var(--school-1);
 
-  /* Telefonlar: bölüm rengi (kum) ve kılıf renkleri. Mat, paletle uyumlu ama adı tanınacak kadar net. */
-  --phones-1: #b4a07f; --phones-2: #a48f6e; --phones-3: #927e5f;
+  /* Business: beşinci mat ton, eski pirinç (dilimlerle aynı malzeme). */
+  --biz-1: #bb9b56;    --biz-2: #ab8b4a;    --biz-3: #977a40;
+  /* Platform rozetleri (resmi logo değil, baş harf): her birine paletten ayrı mat ton. */
+  --pf-telegram: #6f9ab3;   /* soluk gök mavisi */
+  --pf-bybit: #cf8c4e;      /* kehribar */
+  --pf-okx: #aaa49b;        /* kül */
+  --on-badge: #1a1511;
+  /* Telefon kılıf renkleri. Mat, paletle uyumlu ama adı tanınacak kadar net. */
   --case-siyah: #2b2724;
   --case-beyaz: #e4dcce;
   --case-gri: #8b8681;
@@ -88,7 +94,7 @@
 [data-cat="school"] { --cat: var(--school-2); --cat-1: var(--school-1); --cat-2: var(--school-2); --cat-3: var(--school-3); --dx: 1; --dy: -1; }
 [data-cat="tasks"] { --cat: var(--tasks-2); --cat-1: var(--tasks-1); --cat-2: var(--tasks-2); --cat-3: var(--tasks-3); --dx: 1; --dy: 1; }
 [data-cat="days"] { --cat: var(--days-2); --cat-1: var(--days-1); --cat-2: var(--days-2); --cat-3: var(--days-3); --dx: -1; --dy: 1; }
-[data-cat="phones"] { --cat: var(--phones-2); --cat-1: var(--phones-1); --cat-2: var(--phones-2); --cat-3: var(--phones-3); }
+[data-cat="business"] { --cat: var(--biz-2); --cat-1: var(--biz-1); --cat-2: var(--biz-2); --cat-3: var(--biz-3); }
 [data-cat="vault"] { --cat: var(--accent); --cat-1: #7fb5aa; --cat-2: var(--accent); --cat-3: #4f857a; }
 
 /* ---------- Temel ---------- */
@@ -177,8 +183,11 @@ button { cursor: pointer; }
 /* ---------- Yüz ---------- */
 .screen-face {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  /* Başlık | halka alanı | Business | "Bugün": halka alanı kalan yüksekliği alır (ızgara satırı kesin
+     yükseklik verir; esnek kutuda Chrome boyut kabının yüksekliğini 0 sayıyordu). */
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr);
   padding: 0;
   overflow: hidden;             /* büyüyen halkanın parlaması ekran kenarından taşmasın */
   touch-action: none;           /* parmak gezdirince sayfa kaymasın, tamarin eğilsin */
@@ -190,6 +199,7 @@ button { cursor: pointer; }
 /* Üst ve alt alanın sabit yükseklikleri (halka ölçeği bunlardan sonra kalan yüksekliğe sığar). */
 .screen-face {
   --head-h: max(96px, calc(112 * var(--u0)));
+  --biz-h: 54px;                /* Business butonu (44px) + altındaki boşluk */
   --strip-h: 150px;
 }
 
@@ -323,7 +333,7 @@ button { cursor: pointer; }
 .face-stage {
   /* Halka ölçeği: dış çap (274u) ekran genişliğine iki yanda 28px kalacak kadar büyür,
      ama başlık + alt yazı + kenar boşluklarından kalan yüksekliğe her zaman sığar. */
-  --ring-h: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--head-h) - var(--strip-h) - 37 * var(--u0) - 28px);
+  --ring-h: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--head-h) - var(--biz-h) - var(--strip-h) - 37 * var(--u0) - 28px);
   --u: min(calc((min(100vw, 560px) - 56px) / 274), calc(var(--ring-h) / 274));
   flex: 1;
   display: flex;
@@ -333,7 +343,14 @@ button { cursor: pointer; }
 }
 
 @supports (height: 100dvh) {
-  .face-stage { --ring-h: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--head-h) - var(--strip-h) - 37 * var(--u0) - 28px); }
+  .face-stage { --ring-h: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--head-h) - var(--biz-h) - var(--strip-h) - 37 * var(--u0) - 28px); }
+}
+
+/* Destekleyen tarayıcıda (iOS 16+) halka, başlık + Business + "Bugün" şeridinden GERÇEKTE kalan yüksekliğe
+   sığar (örnek veri bildirimi şeridi uzatsa da yüz ekrandan taşmaz): sahne bir boyut kabı, halka 100cqh'ye göre. */
+@supports (container-type: size) {
+  .face-stage { container-type: size; min-height: 0; }
+  .ring-wrap { --u: min(calc((min(100vw, 560px) - 56px) / 274), calc((100cqh - 37 * var(--u0) - 4px) / 274)); }
 }
 
 .face-stage::before { content: ""; flex: 2 1 0; }
@@ -890,6 +907,37 @@ button { cursor: pointer; }
 }
 
 .is-intro .today { animation: fade-in 0.7s ease 0.35s both; }
+
+/* Business butonu: durum yazısıyla "Bugün" şeridi arasında, ekran genişliğine yakın, alçak.
+   Dilimlerle aynı malzeme: aynı rengin üç tonu arasında hafif geçiş, ince açık kenar; parlama yok. */
+.face-biz {
+  flex: none;
+  height: var(--biz-h);
+  padding: 0 max(var(--gutter), env(safe-area-inset-right)) 10px max(var(--gutter), env(safe-area-inset-left));
+}
+
+.biz-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px 0 14px;
+  border-radius: 14px;
+  background: linear-gradient(100deg, var(--biz-1), var(--biz-2) 45%, var(--biz-3));
+  box-shadow: inset 0 0 0 1px rgba(255, 245, 230, 0.07);
+  color: var(--on-cat);
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: opacity 0.15s ease;
+}
+
+.biz-btn:active { opacity: 0.85; }
+.biz-btn:focus-visible { outline: 2.5px solid var(--text); outline-offset: 2px; }
+.biz-btn-icon { flex: none; width: 21px; height: 21px; }
+.biz-btn-title { flex: none; font-size: 15px; font-weight: 650; letter-spacing: 0.01em; }
+.biz-btn-info { flex: 1; min-width: 0; text-align: right; font-size: 13px; color: rgba(251, 246, 238, 0.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.biz-btn-chev { flex: none; width: 16px; height: 16px; margin-left: -4px; opacity: 0.85; }
+.is-intro .face-biz { animation: fade-in 0.7s ease 0.3s both; }
 
 /* Örnek veri bildirimi: şeridin üstünde küçük bir satır. */
 .ex-notice {
@@ -2265,8 +2313,7 @@ button { cursor: pointer; }
 .toast.is-stacked .toast-message { flex-basis: 100%; padding: 2px 0 0; }
 .toast.is-stacked .toast-action:first-of-type { margin-left: auto; }
 
-/* ---------- Telefonlar (#telefonlar, js/modules/phones.js) ---------- */
-.phones { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-top: 4px; }
+/* ---------- Business > Telefonlar (#business/telefonlar, js/modules/phones.js) ---------- */
 .phone-art { display: block; flex: none; }
 .p-icon { display: block; width: 18px; height: 18px; }
 .p-count { margin: 0; font-size: 13px; color: var(--text-2); }
@@ -2303,7 +2350,7 @@ button { cursor: pointer; }
 .p-empty { display: grid; justify-items: center; gap: 14px; padding: 12vh 16px 0; text-align: center; }
 .p-empty-art { width: 72px; height: auto; }
 .p-empty-text { margin: 0; font-size: 16px; color: var(--text-soft); }
-.p-empty-btn { padding: 0 24px; background: var(--phones-2); color: var(--on-cat); }
+.p-empty-btn { padding: 0 24px; background: var(--biz-2); color: var(--on-cat); }
 
 /* Ayrıntı */
 .p-detail { display: grid; gap: 16px; }
@@ -2325,7 +2372,7 @@ button { cursor: pointer; }
   border: 1px solid var(--border);
   border-radius: 12px;
   background: rgba(242, 234, 223, 0.03);
-  color: var(--phones-1);
+  color: var(--biz-1);
 }
 
 .p-field { display: grid; gap: 6px; }
@@ -2337,7 +2384,7 @@ button { cursor: pointer; }
 .p-mini { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px; background: none; color: var(--text-2); }
 .p-mini:disabled { opacity: 0.4; }
 .p-copy { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 11px; font-size: 14px; text-decoration: none; }
-.p-copy .p-icon { width: 16px; height: 16px; color: var(--phones-1); }
+.p-copy .p-icon { width: 16px; height: 16px; color: var(--biz-1); }
 
 .p-infos { display: grid; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .p-info { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 11px 14px; }
@@ -2382,3 +2429,199 @@ button { cursor: pointer; }
 .p-extra-chips { margin-top: 0; }
 .p-extra-add { display: inline-flex; align-items: center; justify-content: center; gap: 6px; justify-self: start; min-height: 40px; font-size: 14px; }
 .p-extra-add .p-icon { width: 16px; height: 16px; }
+
+/* ---------- Business (#business, js/modules/business.js) ---------- */
+.biz { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding-top: 4px; }
+.biz-tools { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.biz-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+
+/* Dört parçalı seçici: ad + sayı */
+.biz-seg {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(22, 18, 15, 0.5);
+}
+
+.biz-seg-btn {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 0;
+  min-height: 46px;
+  padding: 5px 2px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-2);
+}
+
+.biz-seg-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 600; }
+.biz-seg-n { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.biz-seg-btn[aria-selected="true"] { background: color-mix(in srgb, var(--cat) 26%, var(--surface-2)); color: var(--text); }
+.biz-seg-btn[aria-selected="true"] .biz-seg-n { color: var(--cat-1); }
+
+.biz-none { margin: 0; font-size: 14px; color: var(--text-3); }
+.biz-nohit { padding: 24px 0; text-align: center; }
+
+/* Platform rozeti: yuvarlak, baş harf (resmi logo yok) */
+.pf-badge {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--pf);
+  box-shadow: inset 0 0 0 1px rgba(255, 245, 230, 0.14);
+  color: var(--on-badge);
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.pf-badge[data-pf="telegram"] { --pf: var(--pf-telegram); }
+.pf-badge[data-pf="bybit"] { --pf: var(--pf-bybit); }
+.pf-badge[data-pf="okx"] { --pf: var(--pf-okx); }
+.pf-badge.is-tiny { width: 17px; height: 17px; font-size: 10px; }
+.pf-badge.is-small { width: 22px; height: 22px; font-size: 11.5px; }
+.pf-badge.is-big { width: 60px; height: 60px; font-size: 26px; }
+.pf-badge.is-empty-badge { width: 72px; height: 72px; font-size: 30px; }
+
+/* Telefon satırındaki hat rozetleri */
+.p-row-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+.p-row-badge { display: inline-flex; align-items: center; gap: 2px; }
+.p-row-badge-n { font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* Hesap satırı */
+.a-group { display: grid; gap: 8px; }
+.a-group-title { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 0; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.a-group-n { font-size: 12px; font-weight: 400; color: var(--text-3); }
+
+.a-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(242, 234, 223, 0.035);
+  color: var(--text);
+  text-align: left;
+}
+
+.a-row:active { background: rgba(242, 234, 223, 0.07); }
+.a-row.is-closed { opacity: 0.55; }
+.a-row-text { display: grid; flex: 1; min-width: 0; gap: 2px; }
+.a-row-name { font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.a-row-user { font-size: 14px; color: var(--text-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.a-row-user.is-empty { color: var(--text-3); }
+.a-row-meta { flex: none; display: grid; justify-items: end; gap: 5px; max-width: 42%; }
+.a-row-phone { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; font-size: 12.5px; color: var(--text-2); }
+.a-row-phone > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.a-row-phone-art { flex: none; width: 11px; height: auto; }
+
+/* Durum etiketi: KYC tamam yeşil, Kısıtlı turuncu, Kapalı soluk, Doğrulanmamış nötr */
+.a-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(242, 234, 223, 0.07);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.a-chip[data-st="active"] { color: #9cc3ba; background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.a-chip[data-st="kyc"] { color: var(--tasks-1); background: color-mix(in srgb, var(--tasks-2) 22%, transparent); }
+.a-chip[data-st="limited"] { color: var(--bills-1); background: color-mix(in srgb, var(--bills-2) 22%, transparent); }
+.a-chip[data-st="closed"] { color: var(--text-3); background: rgba(242, 234, 223, 0.04); }
+
+/* Ayrıntıdaki küçük satırlar: "Bu hatta" hesapları, bağlı telefon */
+.biz-mini-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+.biz-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  text-align: left;
+}
+
+.biz-mini:active { background: rgba(242, 234, 223, 0.06); }
+.biz-mini-art { flex: none; display: grid; place-items: center; width: 34px; }
+.biz-mini-art .phone-art { width: 22px; height: auto; }
+.biz-mini-text { display: grid; flex: 1; min-width: 0; gap: 1px; }
+.biz-mini-name { font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.biz-mini-sub { font-size: 13px; color: var(--text-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.biz-mini-chev { flex: none; width: 16px; height: 16px; color: var(--text-3); }
+
+.biz-add-on { display: grid; gap: 6px; margin-top: 4px; }
+.biz-add-on-label { font-size: 13px; color: var(--text-3); }
+.biz-add-on-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.biz-add-on-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 0 6px; font-size: 14px; }
+
+.biz-vault { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+.biz-vault .p-icon { width: 17px; height: 17px; color: var(--accent); }
+
+/* Hesap formu */
+.pick-badge { margin-bottom: 2px; }
+.a-statuses .chip { min-height: 38px; }
+.a-vault-hint { display: block; }
+.a-vault-hint a { color: var(--toast-action); }
+.a-vault-icon { display: inline-block; width: 14px; height: 14px; margin-right: 5px; vertical-align: -2px; }
+
+.a-phones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+
+.a-phone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(242, 234, 223, 0.035);
+  color: var(--text-2);
+  text-align: left;
+}
+
+.a-phone[aria-checked="true"] { border-color: var(--cat, var(--accent)); background: color-mix(in srgb, var(--cat, var(--accent)) 18%, transparent); color: var(--text); }
+.a-phone-art, .a-phone-none { flex: none; display: grid; place-items: center; width: 18px; }
+.a-phone-art .phone-art { width: 16px; height: auto; }
+.a-phone-none { color: var(--text-3); }
+.a-phone-text { display: grid; min-width: 0; }
+.a-phone-name { font-size: 14px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.a-phone-num { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+
+/* "Bunu Kasa'ya koy" uyarısı (engellemez) */
+.biz-warn {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--bills-2) 45%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bills-2) 12%, transparent);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.biz-warn[hidden] { display: none; }
+.biz-warn.is-loud { border-color: var(--bills-1); background: color-mix(in srgb, var(--bills-2) 22%, transparent); }
+.biz-warn-icon { flex: none; width: 20px; height: 20px; color: var(--bills-1); }
+.biz-warn-link { color: var(--toast-action); white-space: nowrap; }
+.a-statuses .chip[aria-pressed="true"] { background: color-mix(in srgb, var(--cat) 30%, var(--surface-2)); border-color: var(--cat); color: var(--text); }

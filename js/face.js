@@ -1,10 +1,10 @@
 // Ana ekran yüzü (yerleşim: referans/tasarim.gif, renkler: "Toprak" teması).
 // Üstte selamlama + hava + zil ve ipucu; ortada 4 dilimli halka, tamarin ve durum yazısı;
-// altta "Bugün" şeridi. Arkada, içeriğin altında hava efekti (weather-fx.js).
+// durum yazısıyla "Bugün" şeridi arasında Business butonu (#business); altta "Bugün" şeridi. Arkada, içeriğin altında hava efekti (weather-fx.js).
 // Halka ölçüleri GIF pikseli cinsinden (u); CSS'teki --u bunları ekran genişliğine ölçekler.
 import { h, svg, openSheet, closeSheet, toast, confirmTap } from './ui.js';
 import { getState, onChange, setField, countExamples, removeExamples, snapshot, restore } from './store.js';
-import { computeStatus, whenLabel, todayCards, money } from './status.js';
+import { computeStatus, whenLabel, todayCards, money, bizSummary } from './status.js';
 import {
   WINDY, describe, cachedForecast, refreshForecast, ageLabel,
   weatherEvents, setRealForecast, realForecast, currentScene,
@@ -84,6 +84,8 @@ const ICONS = {
   check: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12.2 2.8 2.8L16.2 9.5"/>',
   lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>',
   phone: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.6"/><path d="M10.5 18.5h3"/>',
+  bag: '<rect x="3" y="7" width="18" height="13" rx="2.6"/><path d="M8.6 7V5.6A1.6 1.6 0 0 1 10.2 4h3.6a1.6 1.6 0 0 1 1.6 1.6V7"/><path d="M3 12.4c2.8 1.3 5.8 1.9 9 1.9s6.2-.6 9-1.9"/><path d="M12 13.2v1.9"/>',
+  chevron: '<path d="m9.5 6 6 6-6 6"/>',
 };
 
 function icon(name, cls) {
@@ -376,7 +378,7 @@ export function createFaceScreen(modules) {
   const header = h('header', { class: 'face-top' },
     h('h1', { class: 'visually-hidden' }, 'Tamarin'),
     h('div', { class: 'top-row' }, who, wx,
-      h('a', { class: 'vault-link', href: '#telefonlar', 'aria-label': 'Telefonlar' }, icon('phone', 'vault-link-icon')),
+      h('a', { class: 'vault-link', href: '#business/telefonlar', 'aria-label': 'Telefonlar' }, icon('phone', 'vault-link-icon')),
       h('a', { class: 'vault-link', href: '#kasa', 'aria-label': 'Şifre kasası' }, icon('lock', 'vault-link-icon')),
       bell),
     hint);
@@ -390,6 +392,15 @@ export function createFaceScreen(modules) {
   const ringWrap = h('nav', { class: 'ring-wrap', 'aria-label': 'Bölümler' }, ring);
   const message = h('p', { class: 'face-message', role: 'status' });
 
+  /* Business butonu: halkanın altındaki yazıyla "Bugün" şeridi arasında */
+  const bizInfo = h('span', { class: 'biz-btn-info' });
+  const bizBtn = h('a', { class: 'biz-btn', href: '#business', dataset: { cat: 'business' } },
+    icon('bag', 'biz-btn-icon'),
+    h('span', { class: 'biz-btn-title' }, 'Business'),
+    bizInfo,
+    icon('chevron', 'biz-btn-chev'));
+  const biz = h('div', { class: 'face-biz' }, bizBtn);
+
   /* Alt alan: örnek veri şeridi + "Bugün" kartları */
   const notice = exampleNotice();
   const cardsEl = h('div', { class: 'today-scroll' });
@@ -401,6 +412,7 @@ export function createFaceScreen(modules) {
   const screen = h('div', { class: `screen screen-face${introPlayed ? '' : ' is-intro'}` },
     header,
     h('main', { class: 'face-stage' }, ringWrap, message),
+    biz,
     strip);
 
   if (!introPlayed) {
@@ -475,6 +487,8 @@ export function createFaceScreen(modules) {
       layer.querySelector('.slice-link').setAttribute('aria-label', `${byId[cat].title}: ${status.summaries[cat]}`);
     });
     notice.hidden = !countExamples() || state.exNoticeClosed;
+    bizInfo.textContent = bizSummary(state);
+    bizBtn.setAttribute('aria-label', `Business: ${bizSummary(state)}`);
     renderHeader();
     renderToday();
   }
