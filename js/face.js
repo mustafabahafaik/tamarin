@@ -83,6 +83,7 @@ const ICONS = {
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5zM8 7.5h8"/>',
   check: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12.2 2.8 2.8L16.2 9.5"/>',
   lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>',
+  phone: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.6"/><path d="M10.5 18.5h3"/>',
 };
 
 function icon(name, cls) {
@@ -375,6 +376,7 @@ export function createFaceScreen(modules) {
   const header = h('header', { class: 'face-top' },
     h('h1', { class: 'visually-hidden' }, 'Tamarin'),
     h('div', { class: 'top-row' }, who, wx,
+      h('a', { class: 'vault-link', href: '#telefonlar', 'aria-label': 'Telefonlar' }, icon('phone', 'vault-link-icon')),
       h('a', { class: 'vault-link', href: '#kasa', 'aria-label': 'Şifre kasası' }, icon('lock', 'vault-link-icon')),
       bell),
     hint);

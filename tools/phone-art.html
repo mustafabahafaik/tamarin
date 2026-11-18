@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Telefon çizimleri · Tamarin</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Yalnızca geliştirme: js/phone-art.js'in tüm modelleri birkaç renkte, kılıflı ve kılıfsız. */
+    body { padding: 16px; }
+    h1 { margin: 0 0 4px; font-size: 18px; }
+    h2 { margin: 18px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+    .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+    figure { margin: 0; display: grid; justify-items: center; gap: 4px; font-size: 11px; color: var(--text-2); text-align: center; }
+    .phone-art { display: block; width: 100%; max-width: 64px; height: auto; }
+  </style>
+</head>
+<body>
+  <h1>Telefon çizimleri</h1>
+  <p class="hint">js/phone-art.js · her satırda beş model</p>
+  <main id="out"></main>
+  <script type="module">
+    import { phoneArt } from '../js/phone-art.js';
+    import { PHONE_MODELS } from '../js/store.js';
+    import { MODEL_SHORT } from '../js/status.js';
+    const rows = [
+      ['Siyah', true], ['Sarı', true], ['Su yeşili', true], ['Şeffaf', true], ['Kırmızı', true],
+      ['Lacivert', true], ['Pembe', true], ['Beyaz', false], ['Mor', false], ['Kahverengi', true],
+    ];
+    const out = document.getElementById('out');
+    for (const [color, cased] of rows) {
+      const figs = PHONE_MODELS.map((m) => `<figure>${phoneArt(m, color, cased, 64)}<figcaption>${MODEL_SHORT[m]}</figcaption></figure>`).join('');
+      out.insertAdjacentHTML('beforeend', `<h2>${color} · ${cased ? 'kılıflı' : 'kılıfsız'}</h2><div class="row">${figs}</div>`);
+    }
+  </script>
+</body>
+</html>

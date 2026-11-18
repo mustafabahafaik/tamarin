@@ -7,7 +7,7 @@ import { ymd, ym, addDays, today0, isYmd, isoDow, annualDateError } from './date
 const KEY = 'tamarin.v1';
 const VERSION = 2;
 
-export const TYPES = ['bills', 'classes', 'exams', 'days', 'tasks'];
+export const TYPES = ['bills', 'classes', 'exams', 'days', 'tasks', 'phones'];
 export const DEFAULT_CITY = Object.freeze({ name: 'Çanakkale', lat: 40.1553, lon: 26.4142 });
 export const BILL_CATS = ['Kira', 'Aidat', 'Telefon', 'İnternet', 'Elektrik', 'Su', 'Doğalgaz', 'Abonelik', 'Kredi kartı', 'Diğer'];
 
@@ -31,6 +31,32 @@ export const DAY_KINDS = ['Doğum günü', 'Yıldönümü', 'Özel gün'];
 export const RELATIONS = ['Aile', 'Arkadaş', 'Sevgili', 'İş-Okul', 'Diğer'];
 export const REMINDERS = ['0', '15', '60', '1440', 'none']; // dakika önce; none = hatırlatma yok
 export const PRIORITIES = ['low', 'normal', 'high'];
+export const PHONE_MODELS = ['iPhone SE (2./3. nesil)', 'iPhone 7 Plus', 'iPhone 8', 'iPhone 12', 'Diğer'];
+export const CASE_COLORS = ['Siyah', 'Beyaz', 'Gri', 'Sarı', 'Turuncu', 'Kırmızı', 'Pembe', 'Mor', 'Mavi', 'Lacivert', 'Su yeşili', 'Yeşil', 'Kahverengi', 'Şeffaf'];
+export const MAX_EXTRA = 20;
+
+/**
+ * Telefon numarasını rakama çevirir: boşluk, tire, nokta ve parantez atılır; "+90" baştaki 0 olur.
+ * Boş → ''. Geçersizse (rakam dışı karakter ya da 10–11 hane değil) null.
+ *   phoneDigits('0555 000 00 01') → '05550000001'
+ */
+export function phoneDigits(value) {
+  if (value == null) return '';
+  if (typeof value !== 'string') return null;
+  let s = value.replace(/[\s\-().]/g, '');
+  if (!s) return '';
+  if (s.startsWith('+90')) s = `0${s.slice(3)}`;
+  return /^\d{10,11}$/.test(s) ? s : null;
+}
+
+/** SIM PIN: metin, yalnızca rakam, 4–8 hane (baştaki 0 korunur; sayıya çevrilmez). Boş → ''. Geçersizse null. */
+export function simPin(value) {
+  if (value == null) return '';
+  if (typeof value !== 'string') return null;
+  const s = value.trim();
+  if (!s) return '';
+  return /^\d{4,8}$/.test(s) ? s : null;
+}
 
 export const events = new EventTarget();
 
@@ -76,6 +102,17 @@ function money(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) fail('amount 0 ya da pozitif bir sayı olmalı');
   return Math.round(n * 100) / 100;
+}
+
+function extraRows(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value)) fail('extra liste olmalı');
+  const rows = value.map((row, i) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) fail(`extra[${i}] nesne olmalı`);
+    return { label: text(row.label, 'extra.label', { max: 40 }), value: text(row.value, 'extra.value', { max: 200 }) };
+  }).filter((row) => row.label || row.value); // boş satırlar atılır
+  if (rows.length > MAX_EXTRA) fail(`extra en fazla ${MAX_EXTRA} satır olabilir`);
+  return rows;
 }
 
 const MAX_DAY = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -142,6 +179,24 @@ const SHAPES = {
       doneAt: done && typeof x.doneAt === 'string' && !Number.isNaN(Date.parse(x.doneAt)) ? new Date(x.doneAt).toISOString() : '',
     };
   },
+  // Hata mesajları değeri içermez (PIN konsola ya da arayüze sızmasın).
+  phones: (x) => {
+    const number = phoneDigits(x.number);
+    if (number === null) fail('number 10–11 haneli olmalı');
+    const pin = simPin(x.pin);
+    if (pin === null) fail('pin 4–8 rakamlı metin olmalı');
+    if (x.cased != null && typeof x.cased !== 'boolean') fail('cased true/false olmalı');
+    return {
+      name: text(x.name, 'name', { required: true, max: 40 }),
+      number,
+      pin,
+      model: oneOf(x.model, 'model', PHONE_MODELS, 'Diğer'),
+      color: oneOf(x.color, 'color', CASE_COLORS, 'Siyah'),
+      cased: x.cased !== false,
+      note: text(x.note, 'note', { max: 1000 }),
+      extra: extraRows(x.extra),
+    };
+  },
 };
 
 const FIELDS = {
@@ -205,7 +260,7 @@ function defaults() {
     city: { ...DEFAULT_CITY },
     semesterEnd: '',
     sound: { on: true, volume: 0.7 },
-    bills: [], classes: [], exams: [], days: [], tasks: [],
+    bills: [], classes: [], exams: [], days: [], tasks: [], phones: [],
     exNoticeClosed: false,
     ui: { schoolTab: 'schedule' },
     calendar: { exported: {}, last: null },
@@ -287,6 +342,7 @@ function examples() {
       { title: 'Market alışverişi', date: ymd(today), time: '18:00', remind: '60', prio: 'normal', note: '', done: false, ex: true },
       { title: 'Kütüphaneye kitap iade', date: ymd(on(1)), time: '', remind: '1440', prio: 'high', note: '', done: false, ex: true },
     ],
+    phones: [], // telefonlarda örnek yok
   };
 }
 

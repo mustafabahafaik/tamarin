@@ -23,12 +23,14 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - `js/weather.js` — hava durumu (tahmin, önbellek, şehir arama, WMO → Türkçe, efekt "sahnesi")
   - `js/weather-fx.js` — içeriğin arkasındaki tam ekran hava efekti canvas'ı
   - `js/face.js` — ana ekran yüzü (başlık, halka, tamarin, "Bugün" şeridi, zil/tahmin/kayıt sheet'leri)
-  - `js/status.js` — durum: acil olanlar, yaklaşanlar listesi, alttaki yazı, tamarinin ruh hali
+  - `js/status.js` — durum: acil olanlar, yaklaşanlar listesi, alttaki yazı, tamarinin ruh hali;
+    telefon numarası biçimi ve doğal sıra (`formatPhone`, `sortPhones`, `MODEL_SHORT`)
+  - `js/phone-art.js` — `phoneArt(model, color, cased, size)`: telefonun arkasının SVG işaretlemesi (DOM'suz)
   - `js/sound.js` — Web Audio ile sentezlenen tamarin sesleri
   - `js/settings.js` — Ayarlar ekranı (sol üstteki kullanıcıya dokununca açılan sheet)
-  - `js/modules/*.js` — `bills`, `school`, `days`, `tasks`, `vault` (şifre kasası ekranı)
+  - `js/modules/*.js` — `bills`, `school`, `days`, `tasks`, `vault` (şifre kasası ekranı), `phones` (Telefonlar)
   - `js/vault.js` — kasa çekirdeği: Web Crypto ile şifreleme, kilit, otomatik kilit, şifre üretici
-  - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`: `node tests/<ad>.test.mjs`);
+  - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`, `phones`: `node tests/<ad>.test.mjs`);
     `tests/fixtures/ornek.ics` örnek takvim (`.gitattributes`: `-text`, CRLF bayt bayt korunur)
   - `manifest.webmanifest`, `sw.js`, `icons/`
   - `README.md`, `docs/ekran-goruntusu.webp` (README görseli), `.nojekyll` (Pages dosyaları işlemesin)
@@ -36,13 +38,14 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     üretilen `icons/` proje sahibine ait (kaynağı referans/tasarim.gif); lisans sorusu kapandı, değiştirme önerme
   - `referans/tasarim.gif` — ana ekranın yerleşim ve ölçü referansı (renkleri artık "Toprak" teması).
     Yalnızca bu bilgisayarda: `.gitignore`'da, depoya girmez (tools/cut_tamarin.py okur)
-  - `tools/` — yalnızca geliştirme araçları (yerel sunucu, tamarin kesici, ikon üretici); uygulama bunları yüklemez
+  - `tools/` — yalnızca geliştirme araçları (yerel sunucu, tamarin kesici, ikon üretici, `phone-art.html`:
+    tüm telefon çizimleri birkaç renkte yan yana); uygulama bunları yüklemez
 - **Kullanıcı:** Tek kullanıcı; ad ve şehir store'da (`name` varsayılan "Baha", `city` varsayılan
   Çanakkale). Ayarlar ekranından değişir.
 - **Veri:** localStorage, `"tamarin.v1"` anahtarında tek state nesnesi (js/store.js). Bildirimler
   iPhone Takvimi'ne `.ics` aktarımıyla; hava durumu Open-Meteo'dan. Şema (alanların kuralları
   store.js'teki `SHAPES`'te):
-  - `{ version: 2, name, city: {name, lat, lon}, semesterEnd, sound: {on, volume 0–1}, bills, classes, exams, days, tasks, exNoticeClosed, ui: {schoolTab}, calendar, cache }`
+  - `{ version: 2, name, city: {name, lat, lon}, semesterEnd, sound: {on, volume 0–1}, bills, classes, exams, days, tasks, phones, exNoticeClosed, ui: {schoolTab}, calendar, cache }`
   - calendar `{exported: {"<tür>:<id>": hash}, last: {at, method, count, note} | null}` (js/ics.js yazar)
   - bill `{id, name, cat, amount, day (1–31; kısa ayda son güne kırpılır), note, paid: ["2026-11", …]}`;
     cat: Kira / Aidat / Telefon / İnternet / Elektrik / Su / Doğalgaz / Abonelik / Kredi kartı / Diğer
@@ -52,6 +55,12 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - day `{id, name, kind (Doğum günü/Yıldönümü/Özel gün), day, month, year?, rel (Aile/Arkadaş/Sevgili/İş-Okul/Diğer), note}`
   - task `{id, title, date ("" = tarihsiz), time? (yalnızca tarihliyse), remind ("0","15","60","1440","none"),
     prio (low/normal/high), note, done, doneAt (ISO; yalnızca tamamlanmışsa)}`; tarihsiz görev zile ve yüze girmez
+  - phone `{id, name (≤ 40), number ("" ya da 10–11 rakam; "0555 000 00 01", tireli, "+90 …" girişi rakama
+    çevrilir: `phoneDigits`), pin ("" ya da 4–8 rakamlı METİN, baştaki 0 korunur; sayı türü reddedilir:
+    `simPin`), model (PHONE_MODELS: iPhone SE (2./3. nesil) / iPhone 7 Plus / iPhone 8 / iPhone 12 / Diğer;
+    boşsa Diğer), color (CASE_COLORS, 14 renk; boşsa Siyah), cased (boolean, varsayılan true), note (≤ 1000),
+    extra: [{label ≤ 40, value ≤ 200}] (boş satırlar atılır, en çok 20)}`. Yeni tür olduğu için VERSION
+    2 kaldı; eski kayıtta `phones` yoksa boş liste. Telefonlarda örnek kayıt yok; yedeğe girer.
   - Örnek kayıtlar `ex: true` taşır; `cache` (hava) yedeğe girmez ve olay yayınlamaz.
 - **Veriye yazma yalnızca store API'siyle:** `add(type, item)`, `update(type, id, patch)`,
   `remove(type, id)`, `setField(key, value)`. Şemaya uymayan kayıt hata fırlatır; bozuk kayıtlı veri
@@ -65,8 +74,10 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - Üst alan: solda kullanıcı ikonu + saate göre selamlama ("Günaydın, Baha") ve tarih (dokununca
     Ayarlar), sağda büyük sıcaklık + durum + ↑/↓ ve hava ikonu (dokununca 4 günlük tahmin), en sağda
     zil. Altında tek satır ipucu: yağış > %50, > 30°, < 5°, rüzgar > 25 km/s; yoksa gün doğumu/batımı.
-    İsim kesilmez: sığmazsa selamdan sonra ikinci satıra iner (`.greet-hello` / `.greet-name`); hava
-    sütunu daha uzun olduğu için başlık yüksekliği değişmez (yalnızca 430px civarında birkaç piksel).
+    Zilin solunda iki küçük bağlantı: telefon (#telefonlar) ve kilit (#kasa), 30px genişlik.
+    İsim kesilmez: sığmazsa selamdan sonra ikinci satıra iner (`.greet-hello` / `.greet-name`; 375px'te
+    "Günaydın, Baha" da iner). `.who` 4px aşağıda `position: relative` ile durur, yerleşimde yer kaplamaz:
+    iki satırlı selam bile hava sütunundan (≈60px) en çok ~1px uzun, başlık yüksekliği değişmez.
   - Ortada 4 dilimli mat halka — sol üst Ödemeler (kiremit, cüzdan), sağ üst Eğitim (arduvaz mavisi,
     kep), sol alt Özel Günler (gül kurusu, kalp), sağ alt Ajanda (adaçayı, takvim) — ve ortada tamarin.
     Altında tamarinin durum yazısı: acil bir şey yoksa havaya göre konuşur.
@@ -88,7 +99,7 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   (`.face-stage`) `--u`'yu kendi ölçeğiyle yeniden tanımlar: uzun ekranda halka genişliğe göre
   büyür (iki yanda 28px), başlık ve alt yazı tasarım boyutunda kalır.
 - **Hash routing:** `#odemeler`, `#egitim`, `#gunler`, `#ajanda`, `#kasa` (zilin yanındaki kilit
-  ikonu); boş hash = yüz. Ekran `leave()` tanımlarsa router ayrılırken çağırır; "+" ekranın `onAdd()`'ını
+  ikonu), `#telefonlar` (kilidin solundaki ince telefon ikonu); boş hash = yüz. Ekran `leave()` tanımlarsa router ayrılırken çağırır; "+" ekranın `onAdd()`'ını
   açar, `fab: false` ise "+" gösterilmez. Modül store'a abone olursa `leave()`'de bırakır.
 - **Ödemeler (#odemeler, js/modules/bills.js):** Üstte ay özeti (toplam/ödenen/kalan, "3/5 ödendi",
   turuncu çubuk; hepsi ödenince yeşil ve "Bu ayki tüm ödemeler tamam") ve ‹ ay › değiştirici. Satır:
@@ -152,6 +163,28 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - Form: başlık, tarih (aynı çipler + Tarihsiz), saat, hatırlatma, önem, not; ertele ve iki dokunuşla sil.
   - Yeşil dilim özeti: "1 gecikmiş" / "Bugün 3 iş" / "Bugün boş" (açık iş var) / "Boş". Gecikmiş iş varsa
     tamarin endişeli.
+- **Telefonlar (#telefonlar, js/modules/phones.js):** 8 iPhone, hatları ve SIM PIN'leri tek yerde.
+  - Liste ada göre doğal sırada (faik2 < faik10, `sortPhones`): solda telefon çizimi (~40px), ad (kalın),
+    altında "0555 000 00 01" (yoksa "Numara yok"), sağda renk noktası + kısa model ("SE", "7 Plus", "8",
+    "12"). Boşsa çizim + "Telefonlarını ekle".
+  - Ayrıntı sheet'i: büyük çizim, ad, model, sağ üstte düzenle kalemi; numara satırında "Ara" (`tel:`) ve
+    "Kopyala"; "SIM PIN ••••" satırı; model, kılıf rengi (kılıfsızsa "Renk"), not, Ek bilgiler (etiket: değer).
+  - Form: canlı çizim önizlemesi, ad, numara (`inputmode="tel"`; alandan çıkınca biçimlenir), PIN, model
+    (`pickGrid`, ikonları seçili renk/kılıfla `phoneArt`), Kılıflı/Kılıfsız, renk yuvarlakları, not, Ek
+    bilgiler (satır ekle/sil; öneri çipleri Operatör, Tarife, IMEI, PUK, Alış tarihi, Garanti, Kimde).
+    Silme formda, iki dokunuş + "Geri al". Ekran rengi kum (`--phones-1..3`, `[data-cat="phones"]`).
+  - **PIN kuralları:** listede, toast'ta, konsolda, URL'de ve hata mesajlarında PIN hiç yok (store hata
+    mesajları değeri içermez). Ayrıntıda uzunluğu da belli etmeyen "••••"; göz ikonuyla görünür, 30 sn
+    sonra, sheet kapanınca, ekrandan çıkınca (`leave`) ve uygulama arka plana geçince (`visibilitychange`
+    hidden, `pagehide`) yeniden gizlenir. "Kopyala" panoya yazar, 30 sn sonra `writeText("")` (başarısızsa
+    sessiz). Formdaki PIN alanı `type=password` + göz, `inputmode="numeric"`, `autocomplete="off"`; form
+    kapanınca alan boşaltılır. `phones.js`'te `console.*` yok. PIN ana store'da (şifresiz) durur ve
+    ana yedeğe girer; kasa gibi şifrelenmez.
+  - Çizim (js/phone-art.js): SE ve 8 aynı gövde (sol üstte tek kamera + yanında flaş), 7 Plus daha büyük
+    gövde + yatay hap şeklinde çift kamera + flaş, 12 düz kenarlı gövde + kare adada çapraz iki kamera +
+    flaş, Diğer tek kamera. Kılıflıysa daha kalın yumuşak kenarlı kılıf katmanı ve kamera açıklığı; Şeffaf
+    kılıf yarı saydam, altında gümüş gövde. Logo yok. Renkler `--case-<renk>` (`--case-su-yesili` …) ve
+    `--pa-*` değişkenleri; yalnızca ince bir üst ışık geçişi.
 - **Takvim (js/ics.js):** Bildirimleri iPhone'un kendi Takvim'i verir; uygulama yalnızca .ics üretir.
   - RFC 5545: VCALENDAR'da VERSION:2.0, PRODID:-//Tamarin//TR, CALSCALE:GREGORIAN, X-WR-CALNAME:Tamarin,
     X-WR-TIMEZONE:Europe/Istanbul. CRLF, TEXT kaçışı (\\ ; , yeni satır), 75 bayt katlama (kod noktası
@@ -230,7 +263,8 @@ harfiyen uyulur, gevşetilmez:
   geçersiz tarih, sıralama, gruplar, filtre, dilim özeti), `node tests/tasks.test.mjs` (Türkçe ifade
   algılama, gruplama, erteleme, gecikme, tamamlananlar, dilim özeti), `node tests/ics.test.mjs` (satır
   katlama, kaçış, CRLF, RRULE'ler ve ay sonu kayması, 29 Şubat, UNTIL, alarmlar, teslim zinciri, hash;
-  örnek dosyayı yenilemek için `UPDATE_FIXTURES=1`).
+  örnek dosyayı yenilemek için `UPDATE_FIXTURES=1`), `node tests/phones.test.mjs` (numara temizleme ve
+  biçimi, PIN'de baştaki 0, geçersiz numara/PIN, model/renk, ek bilgi sınırları, doğal sıra, yedek, çizim).
 - Izgara içindeki yatay kayan şeritler sayfayı genişletmesin: kapsayıcıya
   `grid-template-columns: minmax(0, 1fr)` ya da `min-width: 0` ver; 375px'te `scrollWidth` kontrol et.
 - Yayın: GitHub Pages, `main` dalının kökü → https://mustafabahafaik.github.io/tamarin/. Depo herkese açık:

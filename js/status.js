@@ -726,3 +726,25 @@ export function todayCards(now = new Date(), state = getState()) {
 
   return cards;
 }
+
+/* ---------- Telefonlar ---------- */
+
+/** "05550000001" → "0555 000 00 01", "5550000001" → "555 000 00 01"; başka uzunluk olduğu gibi. */
+export function formatPhone(digits) {
+  if (typeof digits !== 'string') return '';
+  const m = digits.match(/^(0?\d{3})(\d{3})(\d{2})(\d{2})$/);
+  return m ? m.slice(1).join(' ') : digits;
+}
+
+/** Listedeki kısa model adı: "SE", "7 Plus", "8", "12", "Diğer". */
+export const MODEL_SHORT = {
+  'iPhone SE (2./3. nesil)': 'SE', 'iPhone 7 Plus': '7 Plus', 'iPhone 8': '8', 'iPhone 12': '12', Diğer: 'Diğer',
+};
+
+// Doğal sıra: "faik2" < "faik10"; büyük/küçük harf ve Türkçe harfler doğru sıralanır.
+const phoneCollator = new Intl.Collator('tr-TR', { numeric: true, sensitivity: 'base' });
+
+/** Telefonları ada göre doğal sırada döndürür (aynı adda numaraya göre). */
+export function sortPhones(phones) {
+  return [...phones].sort((a, b) => phoneCollator.compare(a.name, b.name) || a.number.localeCompare(b.number));
+}

@@ -1,4 +1,5 @@
-// Router + render. Boş hash = yüz; #odemeler, #egitim, #gunler, #ajanda = modül ekranları; #kasa = şifre kasası.
+// Router + render. Boş hash = yüz; #odemeler, #egitim, #gunler, #ajanda = modül ekranları; #kasa = şifre kasası;
+// #telefonlar = telefonlar.
 import { h, icons, closeSheet, toast } from './ui.js';
 import { createFaceScreen } from './face.js';
 import { unlockAudio } from './sound.js';
@@ -8,9 +9,10 @@ import school from './modules/school.js';
 import days from './modules/days.js';
 import tasks from './modules/tasks.js';
 import vault from './modules/vault.js';
+import phones from './modules/phones.js';
 
 const MODULES = [bills, school, days, tasks]; // yüzdeki dört dilim
-const SCREENS = [...MODULES, vault];          // hash ile açılan tüm ekranlar
+const SCREENS = [...MODULES, vault, phones];          // hash ile açılan tüm ekranlar
 const byRoute = new Map(SCREENS.map((mod) => [mod.route, mod]));
 const root = document.getElementById('app');
 let current = null; // açık modül ekranı (ayrılırken leave() çağrılır)
