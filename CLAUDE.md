@@ -205,19 +205,20 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     (platform başına bir rozet, birden çoksa sayı), sağda renk noktası + kısa model. Boşsa çizim +
     "Telefonlarını ekle".
   - Telefon ayrıntısı: büyük çizim, ad, model, düzenle kalemi; numara "Ara" (`tel:`) ve "Kopyala"; "SIM PIN
-    ••••"; model, kılıf rengi (kılıfsızsa "Renk"), not, Ek bilgiler; "Bu hatta" (bağlı hesapların etiketleri, ör.
-    "Eren"; dokununca hesabın ayrıntısı) ve "Bu hatta hesap ekle" (Telegram / Bybit / OKX: platformu ve phoneId'si dolu form).
-  - Telegram sekmesi: her satırda YALNIZCA iki şey: solda bağlı telefonun `phoneArt` çizimi (~44px, kendi
-    model/kılıf renginde), sağında etiket büyük ve kalın ("Eren"). İkinci satır yok: telefon adı, numara,
-    kullanıcı adı, durum ve platform rozeti satırda gösterilmez, yalnızca ayrıntıda. Telefonu yoksa çizim
+    ••••"; model, kılıf rengi (kılıfsızsa "Renk"), not, Ek bilgiler; "Bu hatta" (bağlı hesaplar yalnızca platform
+    rozeti + etiket, ör. "T Eren", "B Duygu"; dokununca hesabın ayrıntısı) ve "Bu hatta hesap ekle" (Telegram / Bybit / OKX: platformu ve phoneId'si dolu form).
+  - Telegram ve Bybit sekmeleri (`COMPACT`, js/modules/accounts.js): her satırda YALNIZCA iki şey: solda
+    bağlı telefonun `phoneArt` çizimi (~44px, kendi model/kılıf renginde), sağında etiket büyük ve kalın
+    ("Eren"), dikeyde çizimle ortalı. Satırda başka hiçbir şey yok: kullanıcı adı, e-posta, UID, numara,
+    telefon adı, durum etiketi ve platform rozeti gösterilmez, yalnızca ayrıntıda. Telefonu yoksa çizim
     yerine kesik çizgili boş siluet (`phoneSilhouette`). Sıra etikete göre alfabetik (`sortByLabel`,
     localeCompare 'tr'); "Hat yok" grubu yok. Kapalı hesabın satırı soluk.
-  - Bybit / OKX sekmeleri: solda bağlı telefonun çizimi (yoksa siluet), yanında etiket (kalın), altında küçük
+  - OKX sekmesi: solda bağlı telefonun çizimi (yoksa siluet), yanında etiket (kalın), altında küçük
     e-posta, sağda durum etiketi (Aktif patina, KYC tamam yeşil, Kısıtlı turuncu, Kapalı soluk ve satır soluk,
     Doğrulanmamış nötr); platform rozeti satırda yok. Sıra bağlı telefonun doğal sırası, sonra etiket
     (`accountGroups`); telefonu olmayanlar altta "Hat yok" grubunda.
   - Boş sekmede rozet + "Telegram hesaplarını ekle" vb.
-  - Hesap ayrıntısı: büyük rozet, etiket, platform, düzenle kalemi; kullanıcı adı / e-posta (Kopyala), UID /
+  - Hesap ayrıntısı (üç platform için aynı): büyük rozet, etiket, platform, düzenle kalemi; kullanıcı adı / e-posta (Kopyala), UID /
     Telegram ID (Kopyala), durum, 2FA Açık/Kapalı, bağlı telefon (dokununca telefonun ayrıntısı), not, Ek
     bilgiler, "Şifresi Kasa'da" → #kasa.
   - Hesap formu: platform (`pickGrid`, rozetli), etiket (zorunlu, "Örn. Eren"), telefon seçici

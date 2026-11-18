@@ -12,7 +12,7 @@ import { formatPhone, MODEL_SHORT, accountsOf } from '../status.js';
 import { phoneArt, caseVar } from '../phone-art.js';
 import { field as formField, pickGrid, focusFirstError } from '../form.js';
 import { icon, PLAIN, REVEAL_MS, revealed, copy, info, badge, extraEditor, vaultGuard } from '../biz-ui.js';
-import { openAccountDetail, openAccountForm, statusChip } from './accounts.js';
+import { openAccountDetail, openAccountForm } from './accounts.js';
 
 export const art = (phone, size, cls = 'phone-art') => svg(phoneArt(phone.model, phone.color, phone.cased, size, cls));
 
@@ -90,19 +90,17 @@ function pinRow(pin) {
     h('div', { class: 'p-field-row' }, value, eye, copyBtn)), hide };
 }
 
-/** "Bu hatta": bağlı hesaplar (dokununca hesabın ayrıntısı) ve platform seçip hesap ekleme. */
+/** "Bu hatta": bağlı hesaplar, yalnızca rozet + etiket ("T Eren", "B Duygu"; dokununca hesabın ayrıntısı) ve hesap ekleme. */
 function onThisLine(phone) {
   const mine = accountsOf(getState().accounts, phone.id);
   return h('div', { class: 'p-field' },
     h('span', { class: 'field-label' }, 'Bu hatta'),
     mine.length
       ? h('ul', { class: 'biz-mini-list' }, mine.map((a) => h('li', {},
-        h('button', { type: 'button', class: 'biz-mini', onclick: () => openAccountDetail(a.id) },
-          badge(a.platform),
-          h('span', { class: 'biz-mini-text' },
-            h('span', { class: 'biz-mini-name' }, a.label),
-            h('span', { class: 'biz-mini-sub' }, a.username || a.platform)),
-          statusChip(a.status)))))
+        h('button', { type: 'button', class: 'biz-mini biz-mini-acc', onclick: () => openAccountDetail(a.id), 'aria-label': `${a.platform}: ${a.label}` },
+          badge(a.platform, 'is-small'),
+          h('span', { class: 'biz-mini-name' }, a.label),
+          icon('chevron', 'biz-mini-chev')))))
       : h('p', { class: 'biz-none' }, 'Bu hatta kayıtlı hesap yok.'),
     h('div', { class: 'biz-add-on' },
       h('span', { class: 'biz-add-on-label' }, 'Bu hatta hesap ekle'),

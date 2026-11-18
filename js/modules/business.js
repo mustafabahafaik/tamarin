@@ -7,7 +7,7 @@ import { searchPhones, searchAccounts, accountGroups, sortByLabel } from '../sta
 import { phoneArt } from '../phone-art.js';
 import { icon, PLAIN, badge, hideAllPins } from '../biz-ui.js';
 import { phoneRow, openPhoneForm } from './phones.js';
-import { accountRow, openAccountForm } from './accounts.js';
+import { accountRow, openAccountForm, COMPACT } from './accounts.js';
 
 const TAB_TITLES = { telefonlar: 'Telefonlar', telegram: 'Telegram', bybit: 'Bybit', okx: 'OKX' };
 const PLATFORM_OF = { telegram: 'Telegram', bybit: 'Bybit', okx: 'OKX' };
@@ -80,12 +80,12 @@ function draw() {
   const found = searchAccounts(state.accounts, state.phones, query, platform);
   if (!found.length) { listEl.replaceChildren(h('p', { class: 'biz-none biz-nohit' }, 'Eşleşen hesap yok.')); return; }
   const byId = new Map(state.phones.map((p) => [p.id, p]));
-  // Telegram: tek liste, etikete göre alfabetik (telefonsuzlar siluetle, aynı listede).
-  if (platform === 'Telegram') {
+  // Telegram ve Bybit: tek liste, etikete göre alfabetik (telefonsuzlar siluetle, aynı listede).
+  if (COMPACT.has(platform)) {
     listEl.replaceChildren(h('ul', { class: 'p-list' }, sortByLabel(found).map((a) => accountRow(a, byId.get(a.phoneId)))));
     return;
   }
-  // Bybit / OKX: bağlı telefonun sırasıyla, telefonsuzlar altta "Hat yok" grubunda.
+  // OKX: bağlı telefonun sırasıyla, telefonsuzlar altta "Hat yok" grubunda.
   listEl.replaceChildren(...accountGroups(found, state.phones).map((group) => h('section', { class: 'a-group' },
     group.title && h('h2', { class: 'a-group-title' }, group.title, h('span', { class: 'a-group-n' }, String(group.items.length))),
     h('ul', { class: 'p-list' }, group.items.map((a) => accountRow(a, byId.get(a.phoneId)))))));

@@ -12,6 +12,8 @@ import { art, numberText, openPhoneDetail } from './phones.js';
 const EXTRA_LABELS = ['Kayıt tarihi', 'Referans kodu', 'Ülke'];
 const STATUS_SLUG = { Aktif: 'active', Doğrulanmamış: 'unverified', 'KYC tamam': 'kyc', Kısıtlı: 'limited', Kapalı: 'closed' };
 const isExchange = (platform) => platform !== 'Telegram';
+/** Satırda yalnızca çizim + etiket gösterilen platformlar (sıra: etikete göre alfabetik). */
+export const COMPACT = new Set(['Telegram', 'Bybit']);
 export const userLabel = (platform) => (isExchange(platform) ? 'E-posta' : 'Kullanıcı adı');
 
 /** Durum etiketi: KYC tamam yeşil, Kısıtlı turuncu, Kapalı soluk, Doğrulanmamış nötr. */
@@ -27,18 +29,18 @@ const phoneOf = (account) => getState().phones.find((p) => p.id === account.phon
 const lineArt = (phone) => h('span', { class: 'a-row-art' }, phone ? art(phone, 44) : svg(phoneSilhouette(44)));
 
 /**
- * Telegram satırı: YALNIZCA bağlı telefonun çizimi ve büyük, kalın etiket ("Eren"). Telefon adı, numara,
- * kullanıcı adı, durum ve rozet satırda yok; ayrıntıda durur.
- * Bybit / OKX satırı: çizim, etiket (kalın) + altında küçük e-posta, sağda durum etiketi.
+ * Telegram ve Bybit satırı: YALNIZCA bağlı telefonun çizimi ve büyük, kalın etiket ("Eren"), dikeyde ortalı.
+ * Kullanıcı adı, e-posta, UID, numara, telefon adı, durum ve rozet satırda yok; ayrıntıda durur.
+ * OKX satırı: çizim, etiket (kalın) + altında küçük e-posta, sağda durum etiketi.
  */
 export function accountRow(account, phone) {
   const line = phone ? phone.name : 'hat yok';
-  if (!isExchange(account.platform)) {
+  if (COMPACT.has(account.platform)) {
     return h('li', {},
       h('button', {
-        type: 'button', class: `a-row a-row-tg${account.status === 'Kapalı' ? ' is-closed' : ''}`,
+        type: 'button', class: `a-row a-row-compact${account.status === 'Kapalı' ? ' is-closed' : ''}`,
         onclick: () => openAccountDetail(account.id), 'aria-label': `${account.label}, ${line}`,
-      }, lineArt(phone), h('span', { class: 'a-row-tg-name' }, account.label)));
+      }, lineArt(phone), h('span', { class: 'a-row-label' }, account.label)));
   }
   return h('li', {},
     h('button', {
