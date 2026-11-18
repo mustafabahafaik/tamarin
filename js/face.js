@@ -83,7 +83,6 @@ const ICONS = {
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5zM8 7.5h8"/>',
   check: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12.2 2.8 2.8L16.2 9.5"/>',
   lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>',
-  phone: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.6"/><path d="M10.5 18.5h3"/>',
   bag: '<rect x="3" y="7" width="18" height="13" rx="2.6"/><path d="M8.6 7V5.6A1.6 1.6 0 0 1 10.2 4h3.6a1.6 1.6 0 0 1 1.6 1.6V7"/><path d="M3 12.4c2.8 1.3 5.8 1.9 9 1.9s6.2-.6 9-1.9"/><path d="M12 13.2v1.9"/>',
   chevron: '<path d="m9.5 6 6 6-6 6"/>',
 };
@@ -324,15 +323,18 @@ function greeting(hour) {
   return 'İyi geceler';
 }
 
-/** Başlığın altındaki tek satır ipucu: yağış > %50, > 30°, < 5°, rüzgar; yoksa gün doğumu/batımı. */
+/**
+ * Başlığın altındaki tek satır ipucu: yağış > %50, > 30°, < 5°, rüzgar; yoksa gün doğumu/batımı.
+ * Yalnızca bilgi, öğüt yok ("şemsiyeni al" değil, "Yağış ihtimali %78").
+ */
 function weatherHint(data) {
   if (!data) return null;
   const today = data.daily[0];
   const now = data.current;
-  if (today.pop > 50) return { icon: 'umbrella', text: `Yağış ihtimali %${today.pop}, şemsiyeni al` };
-  if (Math.max(now.temp, today.max) > 30) return { icon: 'thermo', text: 'Bugün çok sıcak, bol su iç' };
-  if (now.temp < 5) return { icon: 'thermo', text: 'Hava soğuk, kalın giyin' };
-  if (now.wind > WINDY) return { icon: 'wind', text: 'Rüzgar sert, dikkatli ol' };
+  if (today.pop > 50) return { icon: 'umbrella', text: `Yağış ihtimali %${today.pop}` };
+  if (Math.max(now.temp, today.max) > 30) return { icon: 'thermo', text: `En yüksek ${deg(Math.max(now.temp, today.max))}` };
+  if (now.temp < 5) return { icon: 'thermo', text: `Hissedilen ${deg(now.feels ?? now.temp)}` };
+  if (now.wind > WINDY) return { icon: 'wind', text: `Rüzgar ${Math.round(now.wind)} km/s` };
   if (now.isDay) return { icon: 'sunset', text: `Gün batımı ${clock(today.sunset)}` };
   const sunrise = nowParts().hour >= 12 ? data.daily[1]?.sunrise : today.sunrise;
   return { icon: 'sunrise', text: `Gün doğumu ${clock(sunrise)}` };
@@ -378,7 +380,6 @@ export function createFaceScreen(modules) {
   const header = h('header', { class: 'face-top' },
     h('h1', { class: 'visually-hidden' }, 'Tamarin'),
     h('div', { class: 'top-row' }, who, wx,
-      h('a', { class: 'vault-link', href: '#business/telefonlar', 'aria-label': 'Telefonlar' }, icon('phone', 'vault-link-icon')),
       h('a', { class: 'vault-link', href: '#kasa', 'aria-label': 'Şifre kasası' }, icon('lock', 'vault-link-icon')),
       bell),
     hint);

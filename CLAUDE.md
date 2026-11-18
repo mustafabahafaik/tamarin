@@ -96,10 +96,13 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
 - **Ana ekran bir "yüz" (yerleşim: referans/tasarim.gif):**
   - Üst alan: solda kullanıcı ikonu + saate göre selamlama ("Günaydın, Baha") ve tarih (dokununca
     Ayarlar), sağda büyük sıcaklık + durum + ↑/↓ ve hava ikonu (dokununca 4 günlük tahmin), en sağda
-    zil. Altında tek satır ipucu: yağış > %50, > 30°, < 5°, rüzgar > 25 km/s; yoksa gün doğumu/batımı.
-    Zilin solunda iki küçük bağlantı: telefon (#business/telefonlar) ve kilit (#kasa), 30px genişlik.
-    İsim kesilmez: sığmazsa selamdan sonra ikinci satıra iner (`.greet-hello` / `.greet-name`; 375px'te
-    "Günaydın, Baha" da iner). `.who` 4px aşağıda `position: relative` ile durur, yerleşimde yer kaplamaz:
+    zil. Altında tek satır ipucu, YALNIZCA bilgi (öğüt yok: "şemsiyeni al", "bol su iç", "kalın giyin",
+    "dikkatli ol" yazılmaz): yağış > %50 → "Yağış ihtimali %78", > 30° → "En yüksek 32°", < 5° →
+    "Hissedilen 3°", rüzgar > 25 km/s → "Rüzgar 30 km/s"; yoksa gün doğumu/batımı. (Tamarinin halkanın
+    altındaki konuşması ayrı, js/status.js.)
+    Zilin solunda tek küçük bağlantı: kilit (#kasa), 30px genişlik. Başlıkta Business ikonu YOK; Business'a
+    yalnızca halkanın altındaki Business butonundan girilir.
+    İsim kesilmez: sığmazsa selamdan sonra ikinci satıra iner (`.greet-hello` / `.greet-name`). `.who` 4px aşağıda `position: relative` ile durur, yerleşimde yer kaplamaz:
     iki satırlı selam bile hava sütunundan (≈60px) en çok ~1px uzun, başlık yüksekliği değişmez.
   - Ortada 4 dilimli mat halka — sol üst Ödemeler (kiremit, cüzdan), sağ üst Eğitim (arduvaz mavisi,
     kep), sol alt Özel Günler (gül kurusu, kalp), sağ alt Ajanda (adaçayı, takvim) — ve ortada tamarin.
@@ -129,8 +132,8 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   (`.face-stage`) `--u`'yu kendi ölçeğiyle yeniden tanımlar: uzun ekranda halka genişliğe göre
   büyür (iki yanda 28px), başlık ve alt yazı tasarım boyutunda kalır.
 - **Hash routing:** `#odemeler`, `#egitim`, `#gunler`, `#ajanda`, `#kasa` (zilin yanındaki kilit
-  ikonu), `#business` (sekmeler `#business/telefonlar`, `/telegram`, `/bybit`, `/okx`; kilidin solundaki
-  telefon ikonu `#business/telefonlar`); eski `#telefonlar` → `#business/telefonlar`; boş hash = yüz.
+  ikonu), `#business` (sekmeler `#business/telefonlar`, `/telegram`, `/bybit`, `/okx`; yüzde yalnızca
+  Business butonu açar); eski `#telefonlar` → `#business/telefonlar`; boş hash = yüz.
   "/" sonrası alt adres: `render(body, sub)`; aynı ekranda yalnızca alt adres değişirse `subroute(sub)`
   (ekran yeniden kurulmaz; sekme değişimi `location.replace`, geçmişe eklenmez). Ekran `leave()` tanımlarsa router ayrılırken çağırır; "+" ekranın `onAdd()`'ını
   açar, `fab: false` ise "+" gösterilmez. Modül store'a abone olursa `leave()`'de bırakır.
