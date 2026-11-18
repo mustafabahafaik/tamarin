@@ -107,7 +107,9 @@ await test('yeni tür: VERSION değişmez; eski kayıtta phones yoksa tohum tele
   assert.equal(old.getState().phones.length, PHONE_SEED.length);
   assert.equal(old.getState().bills.length, 1);
   assert.equal(old.getState().phoneSeed, SEED_VERSION);
-  assert.ok(old.getState().phones.every((p) => p.pin === '')); // PIN depoda yok, telefondan girilir
+  for (const seed of PHONE_SEED) {
+    assert.equal(old.getState().phones.find((p) => p.number === seed.number).pin, seed.pin); // metin, baştaki 0 dahil
+  }
   assert.equal(old.exportData().version, 2);
 
   // Yeniden açılış: tekrar eklenmez; silinen telefon geri gelmez.
@@ -129,6 +131,27 @@ await test('yeni tür: VERSION değişmez; eski kayıtta phones yoksa tohum tele
   first.resetAll();
   const afterReset = await import(`../js/store.js?sifir=${Date.now()}`);
   assert.equal(afterReset.getState().phones.length, 0);
+});
+
+await test('tohum güncellemesi: boş PIN doldurulur, elle girilen PIN ve silinen telefon korunur', async () => {
+  const { PHONE_SEED, SEED_VERSION } = await import('../js/phones-seed.js');
+  const [a, b, c] = PHONE_SEED;
+  // Önceki sürümden kalan durum: tohum telefonlar PIN'siz eklenmiş, biri elle PIN almış, biri silinmiş.
+  mem.set('tamarin.v1', JSON.stringify({
+    version: 2,
+    phoneSeed: SEED_VERSION - 1,
+    phones: [
+      { name: a.name, number: a.number, pin: '' },
+      { name: b.name, number: b.number, pin: '9999' },
+    ],
+  }));
+  const up = await import(`../js/store.js?guncelle=${Date.now()}`);
+  const phones = up.getState().phones;
+  assert.equal(phones.length, 2); // c silinmişti: geri gelmez
+  assert.equal(phones.find((p) => p.number === a.number).pin, a.pin);
+  assert.equal(phones.find((p) => p.number === b.number).pin, '9999');
+  assert.ok(!phones.some((p) => p.number === c.number));
+  assert.equal(up.getState().phoneSeed, SEED_VERSION);
 });
 
 await test('yedek: telefonlar dışa aktarılır, doğrulanır ve geri yüklenir (PIN baştaki 0 ile)', () => {
