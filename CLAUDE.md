@@ -221,13 +221,20 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     Doğrulanmamış nötr); platform rozeti satırda yok. Sıra bağlı telefonun doğal sırası, sonra etiket
     (`accountGroups`); telefonu olmayanlar altta "Hat yok" grubunda.
   - Boş sekmede rozet + "Telegram hesaplarını ekle" vb.
-  - Hesap ayrıntısı (üç platform için aynı): büyük rozet, etiket, platform, düzenle kalemi; kullanıcı adı / e-posta (Kopyala), UID /
-    Telegram ID (Kopyala), durum, 2FA Açık/Kapalı, bağlı telefon (dokununca telefonun ayrıntısı), not, Ek
-    bilgiler, "Şifresi Kasa'da" → #kasa.
-  - Hesap formu: platform (`pickGrid`, rozetli), etiket (zorunlu, "Örn. Eren"), telefon seçici
+  - Telegram / OKX hesap ayrıntısı: büyük rozet, etiket, platform, düzenle kalemi; kullanıcı adı / e-posta
+    (Kopyala), UID / Telegram ID (Kopyala), durum, 2FA Açık/Kapalı, bağlı telefon (çizim + adı; dokununca
+    telefonun ayrıntısı), not, Ek bilgiler, "Şifresi Kasa'da" → #kasa.
+  - Telegram / OKX hesap formu: platform (`pickGrid`, rozetli), etiket (zorunlu, "Örn. Eren"), telefon seçici
     (iki sütun, çizimli; "Hat yok" siluetle), kullanıcı adı (Telegram `@kullaniciadi`, borsada e-posta), UID,
     durum çipleri, 2FA Açık/Kapalı, not, Ek bilgiler (öneri çipleri Kayıt tarihi, Referans kodu, Ülke).
     Silme formda, iki dokunuş + "Geri al".
+  - **Bybit sade** (`SIMPLE`, js/modules/accounts.js): form YALNIZCA etiket (zorunlu) + telefon seçici; platform
+    seçici, e-posta, UID, durum, 2FA, not, Ek bilgiler yok. Açılınca etiket kutusu odakta, Enter kaydeder.
+    Ayrıntı yalnızca rozet + etiket, bağlı telefon (çizim + adı; dokununca telefonun ayrıntısı), düzenle kalemi
+    ve iki dokunuşla sil + "Geri al". Şema değişmedi: yeni Bybit kaydı yalnızca `{platform, label, phoneId}`
+    yazar, diğer alanlar store varsayılanı (boş / Aktif / 2FA kapalı); düzenleme patch birleştirir, eski Bybit
+    kayıtlarındaki dolu alanlar silinmez, yalnızca gösterilmez (aramada hâlâ bulunur). Telegram/OKX formu
+    Bybit'e geçerse aynı alanlar gizlenir.
   - **Kasa'ya gidecekler:** hesapta şifre, 2FA anahtarı, yedek kod, seed / kurtarma ifadesi, API anahtarı
     tutulmaz. Not ya da Ek bilgiler'de böyle bir şey varsa (`vaultWords`: şifre, parola, password, 2FA
     key/anahtar, yedek kod, seed, kurtarma ifadesi, secret, API key…) formda "Bunu Kasa'ya koy" uyarısı
@@ -333,7 +340,7 @@ harfiyen uyulur, gevşetilmez:
   biçimi, PIN'de baştaki 0, geçersiz numara/PIN, model/renk, ek bilgi sınırları, doğal sıra, yedek, çizim),
   `node tests/business.test.mjs` (numara/PIN, model/renk/platform/durum, gizli alanların atılması, ek bilgi
   sınırları, doğal sıra ve "Hat yok", Telegram'ın Türkçe alfabetik sırası, boş siluet, telefon silinince bağın kopması + Geri al, bilinmeyen phoneId, arama
-  ve PIN'de aramama, yedek, ui.bizTab, "Bunu Kasa'ya koy" sözcükleri, Business özeti).
+  ve PIN'de aramama, yedek, ui.bizTab, "Bunu Kasa'ya koy" sözcükleri, Bybit sade kayıt ve eski alanların korunması, sürüm bazlı tohum, Business özeti).
 - Izgara içindeki yatay kayan şeritler sayfayı genişletmesin: kapsayıcıya
   `grid-template-columns: minmax(0, 1fr)` ya da `min-width: 0` ver; 375px'te `scrollWidth` kontrol et.
 - Yayın: GitHub Pages, `main` dalının kökü → https://mustafabahafaik.github.io/tamarin/. Depo herkese açık:

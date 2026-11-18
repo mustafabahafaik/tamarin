@@ -2638,3 +2638,7 @@ button { cursor: pointer; }
 .biz-warn-icon { flex: none; width: 20px; height: 20px; color: var(--bills-1); }
 .biz-warn-link { color: var(--toast-action); white-space: nowrap; }
 .a-statuses .chip[aria-pressed="true"] { background: color-mix(in srgb, var(--cat) 30%, var(--surface-2)); border-color: var(--cat); color: var(--text); }
+
+/* Hesap formu: Bybit'te yalnızca etiket + telefon; diğer alanlar bu kapta gizlenir. */
+.a-more { display: grid; gap: inherit; }
+.a-more[hidden], .form > .field[hidden] { display: none; }

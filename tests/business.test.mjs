@@ -285,6 +285,22 @@ await test('tohum sürüm bazlı: phoneSeed 2\'de iPhone 12 eklenir, silinen esk
   assert.equal(manual.getState().phones[0].pin, '4242');
 });
 
+await test('Bybit sade form: yalnızca etiket + telefonla kayıt; diğer alanlar varsayılan; eski dolu alanlar güncellemede silinmez', () => {
+  S.resetAll();
+  const p = S.add('phones', phone({ name: 'hat', number: '05550000071' }));
+  const q = S.add('phones', phone({ name: 'hat2', number: '05550000072' }));
+  // Formun yazdığı veri: { platform, label, phoneId }
+  const fresh = S.add('accounts', { platform: 'Bybit', label: 'Eren', phoneId: p.id });
+  assert.deepEqual(
+    [fresh.username, fresh.uid, fresh.status, fresh.twofa, fresh.note, fresh.extra, fresh.phoneId],
+    ['', '', 'Aktif', false, '', [], p.id]);
+  // Eski Bybit kaydı (e-posta, UID, durum, not dolu): yalnızca etiket + telefon güncellenir, gerisi kalır.
+  const old = S.add('accounts', { platform: 'Bybit', label: 'Duygu', phoneId: p.id, username: 'eski@posta.test', uid: '123', status: 'KYC tamam', twofa: true, note: 'not', extra: [{ label: 'Ülke', value: 'TR' }] });
+  const after = S.update('accounts', old.id, { platform: 'Bybit', label: 'Duygu K.', phoneId: q.id });
+  assert.deepEqual([after.label, after.phoneId], ['Duygu K.', q.id]);
+  assert.deepEqual([after.username, after.uid, after.status, after.twofa, after.note, after.extra[0].value], ['eski@posta.test', '123', 'KYC tamam', true, 'not', 'TR']);
+});
+
 await test('Business özeti: "8 hat · 14 hesap"; boşsa "Hat ve hesap ekle"', () => {
   assert.equal(St.bizSummary({ phones: new Array(8).fill({}), accounts: new Array(14).fill({}) }), '8 hat · 14 hesap');
   assert.equal(St.bizSummary({ phones: [{}], accounts: [] }), '1 hat · 0 hesap');

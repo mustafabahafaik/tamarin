@@ -14,6 +14,8 @@ const STATUS_SLUG = { Aktif: 'active', Doğrulanmamış: 'unverified', 'KYC tama
 const isExchange = (platform) => platform !== 'Telegram';
 /** Satırda yalnızca çizim + etiket gösterilen platformlar (sıra: etikete göre alfabetik). */
 export const COMPACT = new Set(['Telegram', 'Bybit']);
+/** Formu ve ayrıntısı yalnızca etiket + telefondan oluşan platform. Diğer alanlar store'da kalır, gösterilmez. */
+export const SIMPLE = 'Bybit';
 export const userLabel = (platform) => (isExchange(platform) ? 'E-posta' : 'Kullanıcı adı');
 
 /** Durum etiketi: KYC tamam yeşil, Kısıtlı turuncu, Kapalı soluk, Doğrulanmamış nötr. */
@@ -58,35 +60,61 @@ export function accountRow(account, phone) {
 
 /* ---------- Ayrıntı ---------- */
 
+/** Bağlı telefon satırı: çizim + adı (dokununca telefonun ayrıntısı); yoksa "Hat yok". */
+function linkedPhone(phone) {
+  return h('div', { class: 'p-field' },
+    h('span', { class: 'field-label' }, 'Bağlı telefon'),
+    phone
+      ? h('button', { type: 'button', class: 'biz-mini', onclick: () => openPhoneDetail(phone.id) },
+        h('span', { class: 'biz-mini-art' }, art(phone, 22)),
+        h('span', { class: 'biz-mini-text' },
+          h('span', { class: 'biz-mini-name' }, phone.name),
+          h('span', { class: 'biz-mini-sub' }, numberText(phone))),
+        icon('chevron', 'biz-mini-chev'))
+      : h('p', { class: 'biz-none' }, 'Hat yok'));
+}
+
+/** İki dokunuşla sil + "Geri al" (formda ve Bybit ayrıntısında). */
+function deleteButton(account) {
+  return confirmTap(h('button', { type: 'button', class: 'btn btn-danger btn-block' }, 'Sil'), () => {
+    const before = snapshot();
+    remove('accounts', account.id);
+    closeSheet();
+    toast(`${account.label} silindi`, { action: 'Geri al', onAction: () => restore(before) });
+  });
+}
+
+const detailHead = (account) => h('div', { class: 'p-detail-head' },
+  badge(account.platform, 'is-big'),
+  h('div', { class: 'p-detail-title' },
+    h('span', { class: 'p-detail-name' }, account.label),
+    h('span', { class: 'p-detail-model' }, account.platform)),
+  h('button', { type: 'button', class: 'p-edit', 'aria-label': `${account.label} düzenle`, onclick: () => openAccountForm(account) }, icon('edit')));
+
 export function openAccountDetail(id) {
   const account = getState().accounts.find((a) => a.id === id);
   if (!account) return;
   const phone = phoneOf(account);
 
+  // Bybit: yalnızca etiket, bağlı telefon, düzenle ve sil (eski kayıttaki e-posta/UID/not store'da durur, gösterilmez).
+  if (account.platform === SIMPLE) {
+    openSheet({
+      title: account.label,
+      body: h('div', { class: 'p-detail', dataset: { cat: 'business' } }, detailHead(account), linkedPhone(phone), deleteButton(account)),
+    });
+    return;
+  }
+
   openSheet({
     title: account.label,
     body: h('div', { class: 'p-detail', dataset: { cat: 'business' } },
-      h('div', { class: 'p-detail-head' },
-        badge(account.platform, 'is-big'),
-        h('div', { class: 'p-detail-title' },
-          h('span', { class: 'p-detail-name' }, account.label),
-          h('span', { class: 'p-detail-model' }, account.platform)),
-        h('button', { type: 'button', class: 'p-edit', 'aria-label': `${account.label} düzenle`, onclick: () => openAccountForm(account) }, icon('edit'))),
+      detailHead(account),
       copyRow(userLabel(account.platform), account.username, isExchange(account.platform) ? 'E-posta kopyalandı' : 'Kullanıcı adı kopyalandı'),
       copyRow(isExchange(account.platform) ? 'UID' : 'Telegram ID', account.uid, 'UID kopyalandı'),
       h('div', { class: 'p-infos' },
         h('div', { class: 'p-info' }, h('span', { class: 'p-info-label' }, 'Durum'), statusChip(account.status)),
         info('2FA', account.twofa ? 'Açık' : 'Kapalı')),
-      h('div', { class: 'p-field' },
-        h('span', { class: 'field-label' }, 'Bağlı telefon'),
-        phone
-          ? h('button', { type: 'button', class: 'biz-mini', onclick: () => openPhoneDetail(phone.id) },
-            h('span', { class: 'biz-mini-art' }, art(phone, 22)),
-            h('span', { class: 'biz-mini-text' },
-              h('span', { class: 'biz-mini-name' }, phone.name),
-              h('span', { class: 'biz-mini-sub' }, numberText(phone))),
-            icon('chevron', 'biz-mini-chev'))
-          : h('p', { class: 'biz-none' }, 'Hat yok')),
+      linkedPhone(phone),
       account.note && h('div', { class: 'p-field' }, h('span', { class: 'field-label' }, 'Not'), h('p', { class: 'p-note' }, account.note)),
       account.extra.length > 0 && h('div', { class: 'p-field' },
         h('span', { class: 'field-label' }, 'Ek bilgiler'),
@@ -145,6 +173,7 @@ export function openAccountForm(account = null, preset = {}) {
     user.type = isExchange(platform) ? 'email' : 'text';
     user.inputMode = isExchange(platform) ? 'email' : 'text';
     form.dataset.pf = platform.toLowerCase();
+    more.hidden = platform === SIMPLE;
   };
 
   const platforms = pickGrid({
@@ -174,11 +203,9 @@ export function openAccountForm(account = null, preset = {}) {
 
   const userField = h('label', { class: 'field', for: 'a-user' }, userTitle, user);
   const uidField = h('label', { class: 'field', for: 'a-uid' }, uidTitle, uid);
-
-  const form = h('form', { class: 'form', novalidate: true, dataset: { cat: 'business' } },
-    h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Platform'), platforms.el),
-    field('label', 'Etiket', label, 'Listede bu adla görünür.'),
-    h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Telefon (hat)'), phones.el),
+  // Bybit formunda gizlenen alanlar (Telegram / OKX'te hepsi görünür).
+  const platformField = h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Platform'), platforms.el);
+  const more = h('div', { class: 'a-more' },
     userField,
     uidField,
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Durum'), statuses),
@@ -187,26 +214,34 @@ export function openAccountForm(account = null, preset = {}) {
     field('note', 'Not', note),
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Ek bilgiler'), extra.el),
     guard.el,
-    h('p', { class: 'field-hint a-vault-hint' }, icon('lock', 'a-vault-icon'), 'Şifre, 2FA anahtarı, yedek kod ve kurtarma ifadesi burada tutulmaz; ', h('a', { href: '#kasa' }, 'Kasa'), '\'ya koy.'),
+    h('p', { class: 'field-hint a-vault-hint' }, icon('lock', 'a-vault-icon'), 'Şifre, 2FA anahtarı, yedek kod ve kurtarma ifadesi burada tutulmaz; ', h('a', { href: '#kasa' }, 'Kasa'), '\'ya koy.'));
+  // Bybit olarak açılan formda platform seçici de yok: yalnızca etiket + telefon.
+  platformField.hidden = platform === SIMPLE;
+
+  const form = h('form', { class: 'form', novalidate: true, dataset: { cat: 'business' } },
+    platformField,
+    field('label', 'Etiket', label, 'Listede bu adla görünür.'),
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Telefon (hat)'), phones.el),
+    more,
     h('p', { class: 'field-error', role: 'alert', id: 'a-form-error' }),
     h('div', { class: 'actions' },
       h('button', { type: 'button', class: 'btn btn-secondary', onclick: () => closeSheet() }, 'Vazgeç'),
       submit),
-    account && confirmTap(h('button', { type: 'button', class: 'btn btn-danger btn-block' }, 'Sil'), () => {
-      const before = snapshot();
-      remove('accounts', account.id);
-      closeSheet();
-      toast(`${account.label} silindi`, { action: 'Geri al', onAction: () => restore(before) });
-    }));
+    account && deleteButton(account));
   paintPlatform();
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     const name = label.value.trim();
     if (!name) { errors.label.textContent = 'Etiket boş olamaz.'; focusFirstError(form); return; }
-    if (!guard.allow()) return; // "Bunu Kasa'ya koy": bir kez uyar, ikinci dokunuşta kaydet
+    // Bybit: yalnızca etiket + telefon yazılır. Yeni kayıtta diğer alanlar store'un varsayılanı (boş / Aktif /
+    // 2FA kapalı); düzenlemede patch birleştirilir, eski kayıttaki dolu alanlar silinmez.
+    const simple = platform === SIMPLE;
+    if (!simple && !guard.allow()) return; // "Bunu Kasa'ya koy": bir kez uyar, ikinci dokunuşta kaydet
 
-    const data = { platform, label: name, phoneId: phones.value, username: user.value, uid: uid.value, status, twofa, note: note.value, extra: extra.value() };
+    const data = simple
+      ? { platform, label: name, phoneId: phones.value }
+      : { platform, label: name, phoneId: phones.value, username: user.value, uid: uid.value, status, twofa, note: note.value, extra: extra.value() };
     try {
       if (account) update('accounts', account.id, data);
       else add('accounts', data);
@@ -220,4 +255,5 @@ export function openAccountForm(account = null, preset = {}) {
 
   guard.update();
   openSheet({ title: account ? 'Hesabı düzenle' : `${platform} hesabı ekle`, body: form });
+  label.focus({ preventScroll: true }); // aynı dokunuşun içinde: iOS klavyeyi açar; Enter formu gönderir
 }
