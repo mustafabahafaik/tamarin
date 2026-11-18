@@ -3,7 +3,7 @@
 // ağ yoksa önbellekteki kopya verilir. Yeni bir uygulama dosyası eklenince
 // SHELL listesine ekle ve CACHE sürümünü artır.
 
-const CACHE = 'tamarin-v11';
+const CACHE = 'tamarin-v12';
 
 const SHELL = [
   './',
@@ -23,6 +23,7 @@ const SHELL = [
   './js/vault.js',
   './js/form.js',
   './js/phone-art.js',
+  './js/phones-seed.js',
   './js/modules/bills.js',
   './js/modules/school.js',
   './js/modules/days.js',

@@ -99,15 +99,36 @@ await test('doğal sıralama: faik2 < faik10, büyük/küçük harf fark etmez',
   assert.equal(St.MODEL_SHORT['iPhone 7 Plus'], '7 Plus');
 });
 
-await test('yeni tür: VERSION değişmez, eski kayıtta phones yoksa boş liste; örnek telefon yok', async () => {
-  mem.set('tamarin.v1', JSON.stringify({ version: 2, name: 'Deneme', bills: [], classes: [], exams: [], days: [], tasks: [] }));
-  const fresh = await import(`../js/store.js?eski=${Date.now()}`);
-  assert.deepEqual(fresh.getState().phones, []);
-  assert.equal(fresh.exportData().version, 2);
+await test('yeni tür: VERSION değişmez; eski kayıtta phones yoksa tohum telefonlar bir kez eklenir, diğer kayıtlar kalır', async () => {
+  const { PHONE_SEED, SEED_VERSION } = await import('../js/phones-seed.js');
+  const bill = { id: 'b1', name: 'Kira', cat: 'Kira', amount: 100, day: 1, note: '', paid: [] };
+  mem.set('tamarin.v1', JSON.stringify({ version: 2, name: 'Deneme', bills: [bill], classes: [], exams: [], days: [], tasks: [] }));
+  const old = await import(`../js/store.js?eski=${Date.now()}`);
+  assert.equal(old.getState().phones.length, PHONE_SEED.length);
+  assert.equal(old.getState().bills.length, 1);
+  assert.equal(old.getState().phoneSeed, SEED_VERSION);
+  assert.ok(old.getState().phones.every((p) => p.pin === '')); // PIN depoda yok, telefondan girilir
+  assert.equal(old.exportData().version, 2);
+
+  // Yeniden açılış: tekrar eklenmez; silinen telefon geri gelmez.
+  old.remove('phones', old.getState().phones[0].id);
+  const again = await import(`../js/store.js?tekrar=${Date.now()}`);
+  assert.equal(again.getState().phones.length, PHONE_SEED.length - 1);
+
+  // Aynı numara elle eklenmişse tohum onu ikinci kez eklemez.
+  mem.set('tamarin.v1', JSON.stringify({ version: 2, phones: [{ name: 'elle', number: PHONE_SEED[0].number }] }));
+  const manual = await import(`../js/store.js?elle=${Date.now()}`);
+  assert.equal(manual.getState().phones.length, PHONE_SEED.length);
+  assert.equal(manual.getState().phones.filter((p) => p.number === PHONE_SEED[0].number).length, 1);
+
+  // İlk açılış: örnekler + tohum telefonlar; "Tüm verileri sil" telefonları geri getirmez.
   mem.delete('tamarin.v1');
   const first = await import(`../js/store.js?ilk=${Date.now()}`);
   assert.ok(first.countExamples() > 0);
-  assert.deepEqual(first.getState().phones, []);
+  assert.equal(first.getState().phones.length, PHONE_SEED.length);
+  first.resetAll();
+  const afterReset = await import(`../js/store.js?sifir=${Date.now()}`);
+  assert.equal(afterReset.getState().phones.length, 0);
 });
 
 await test('yedek: telefonlar dışa aktarılır, doğrulanır ve geri yüklenir (PIN baştaki 0 ile)', () => {

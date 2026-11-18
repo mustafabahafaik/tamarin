@@ -25,6 +25,7 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - `js/face.js` — ana ekran yüzü (başlık, halka, tamarin, "Bugün" şeridi, zil/tahmin/kayıt sheet'leri)
   - `js/status.js` — durum: acil olanlar, yaklaşanlar listesi, alttaki yazı, tamarinin ruh hali;
     telefon numarası biçimi ve doğal sıra (`formatPhone`, `sortPhones`, `MODEL_SHORT`)
+  - `js/phones-seed.js` — Baha'nın telefonları (ad, numara, model, kılıf; PIN yok): açılışta bir kez eklenir
   - `js/phone-art.js` — `phoneArt(model, color, cased, size)`: telefonun arkasının SVG işaretlemesi (DOM'suz)
   - `js/sound.js` — Web Audio ile sentezlenen tamarin sesleri
   - `js/settings.js` — Ayarlar ekranı (sol üstteki kullanıcıya dokununca açılan sheet)
@@ -45,7 +46,7 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
 - **Veri:** localStorage, `"tamarin.v1"` anahtarında tek state nesnesi (js/store.js). Bildirimler
   iPhone Takvimi'ne `.ics` aktarımıyla; hava durumu Open-Meteo'dan. Şema (alanların kuralları
   store.js'teki `SHAPES`'te):
-  - `{ version: 2, name, city: {name, lat, lon}, semesterEnd, sound: {on, volume 0–1}, bills, classes, exams, days, tasks, phones, exNoticeClosed, ui: {schoolTab}, calendar, cache }`
+  - `{ version: 2, name, city: {name, lat, lon}, semesterEnd, sound: {on, volume 0–1}, bills, classes, exams, days, tasks, phones, exNoticeClosed, phoneSeed, ui: {schoolTab}, calendar, cache }`
   - calendar `{exported: {"<tür>:<id>": hash}, last: {at, method, count, note} | null}` (js/ics.js yazar)
   - bill `{id, name, cat, amount, day (1–31; kısa ayda son güne kırpılır), note, paid: ["2026-11", …]}`;
     cat: Kira / Aidat / Telefon / İnternet / Elektrik / Su / Doğalgaz / Abonelik / Kredi kartı / Diğer
@@ -61,6 +62,9 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     boşsa Diğer), color (CASE_COLORS, 14 renk; boşsa Siyah), cased (boolean, varsayılan true), note (≤ 1000),
     extra: [{label ≤ 40, value ≤ 200}] (boş satırlar atılır, en çok 20)}`. Yeni tür olduğu için VERSION
     2 kaldı; eski kayıtta `phones` yoksa boş liste. Telefonlarda örnek kayıt yok; yedeğe girer.
+  - `phoneSeed` (sayı): js/phones-seed.js'in eklenmiş sürümü. Açılışta `phoneSeed < SEED_VERSION` ise
+    numarası kayıtlı olmayan tohum telefonlar eklenir (diğer kayıtlara dokunulmaz); silinen geri gelmez.
+    "Tüm verileri sil" ve yedek yükleme `phoneSeed`'i düşürmez. Yeni telefon eklenince `SEED_VERSION` artar.
   - Örnek kayıtlar `ex: true` taşır; `cache` (hava) yedeğe girmez ve olay yayınlamaz.
 - **Veriye yazma yalnızca store API'siyle:** `add(type, item)`, `update(type, id, patch)`,
   `remove(type, id)`, `setField(key, value)`. Şemaya uymayan kayıt hata fırlatır; bozuk kayıtlı veri
@@ -269,6 +273,7 @@ harfiyen uyulur, gevşetilmez:
   `grid-template-columns: minmax(0, 1fr)` ya da `min-width: 0` ver; 375px'te `scrollWidth` kontrol et.
 - Yayın: GitHub Pages, `main` dalının kökü → https://mustafabahafaik.github.io/tamarin/. Depo herkese açık:
   kişisel veri, gerçek şifre ya da kasa içeriği commit'lenmez; testlerde ve örneklerde yalnızca uydurma veriler.
+  Tek istisna (kullanıcı istedi): js/phones-seed.js'teki telefon numaraları. SIM PIN'ler oraya da girmez.
 - Yerel sunucu: `node tools/serve.mjs` → http://localhost:5190/tamarin/
   (GitHub Pages'teki alt yolu taklit eder; telefondan bakmak için `--lan`).
 - Tamarini kes: `python tools/cut_tamarin.py` (rembg + Pillow; referans/tasarim.gif karelerinden;

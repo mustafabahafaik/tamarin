@@ -3,6 +3,7 @@
 // "tamarin.v1.bozuk" anahtarına saklanır), kayıt yapılamazsa uygulama yine çalışır.
 // Her değişiklikte kaydedilir ve `events` üzerinde "change" olayı yayınlanır.
 import { ymd, ym, addDays, today0, isYmd, isoDow, annualDateError } from './dates.js';
+import { PHONE_SEED, SEED_VERSION } from './phones-seed.js';
 
 const KEY = 'tamarin.v1';
 const VERSION = 2;
@@ -217,6 +218,8 @@ const FIELDS = {
     return { on: v.on !== false, volume: Math.round(volume * 100) / 100 };
   },
   exNoticeClosed: (v) => v === true,
+  // js/phones-seed.js'teki telefonların hangi sürümü eklendi (0 = hiç). Silinen telefon geri gelmesin diye.
+  phoneSeed: (v) => (Number.isInteger(v) && v >= 0 ? v : 0),
   // Arayüz tercihleri (ör. Eğitim'de son seçili sekme)
   ui: (v) => ({ schoolTab: v?.schoolTab === 'exams' ? 'exams' : 'schedule' }),
   // Takvim aktarımı (js/ics.js): kayıt başına son aktarılan halin hash'i ve Ayarlar'daki "Son aktarma" satırı.
@@ -262,6 +265,7 @@ function defaults() {
     sound: { on: true, volume: 0.7 },
     bills: [], classes: [], exams: [], days: [], tasks: [], phones: [],
     exNoticeClosed: false,
+    phoneSeed: 0,
     ui: { schoolTab: 'schedule' },
     calendar: { exported: {}, last: null },
     cache: {},
@@ -386,11 +390,28 @@ function parse(raw) {
   return { state, persist: errors.length > 0 };
 }
 
+/**
+ * js/phones-seed.js'teki telefonları bir kez ekler: numarası zaten kayıtlı olan atlanır, diğer kayıtlara
+ * dokunulmaz. Eklendiyse true.
+ */
+function applyPhoneSeed() {
+  if (state.phoneSeed >= SEED_VERSION) return false;
+  const have = new Set(state.phones.map((p) => p.number).filter(Boolean));
+  const added = [];
+  for (const raw of PHONE_SEED) {
+    if (have.has(raw.number)) continue;
+    try { added.push(normalize('phones', raw)); } catch { /* bozuk tohum kaydı: atla */ }
+  }
+  state = { ...state, phones: [...state.phones, ...added], phoneSeed: SEED_VERSION };
+  return true;
+}
+
 let state;
 {
   const loaded = parse(readStorage());
   state = loaded.state;
-  if (loaded.persist) save();
+  const seeded = applyPhoneSeed();
+  if (loaded.persist || seeded) save();
 }
 
 function save() {
@@ -498,7 +519,7 @@ export function removeExamples() {
 
 /** Tüm kayıtları ve ayarları siler (örnekler geri gelmez). */
 export function resetAll() {
-  state = { ...defaults(), cache: state.cache };
+  state = { ...defaults(), cache: state.cache, phoneSeed: state.phoneSeed }; // telefonlar geri gelmez
   commit({ action: 'reset' });
 }
 
@@ -542,7 +563,7 @@ export function validateBackup(json) {
 export function importBackup(json) {
   const result = validateBackup(json);
   if (!result.ok) throw new SchemaError(result.errors[0]);
-  state = { ...result.state, cache: state.cache };
+  state = { ...result.state, cache: state.cache, phoneSeed: Math.max(result.state.phoneSeed, state.phoneSeed) };
   commit({ action: 'import' });
   return result.counts;
 }
