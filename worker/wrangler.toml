@@ -9,7 +9,7 @@ workers_dev = true
 # `npx wrangler kv namespace create RATE` çıktısındaki id buraya yazılır.
 [[kv_namespaces]]
 binding = "RATE"
-id = "KV_ID_BURAYA"
+id = "1d134643b9df4759825e28c106d510e3"
 
 [observability]
 enabled = false
