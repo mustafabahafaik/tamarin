@@ -319,7 +319,7 @@ function doneRowView(task) {
 
 function emptyState() {
   return h('div', { class: 't-empty' },
-    h('div', { class: 't-empty-tamarin', 'aria-hidden': 'true' }, h('img', { src: 'assets/tamarin.webp', alt: '', draggable: 'false' })),
+    h('div', { class: 't-empty-tamarin', 'aria-hidden': 'true' }, h('img', { src: 'assets/tamarin-768.webp', alt: '', draggable: 'false' })),
     h('p', { class: 't-empty-text' }, 'Aklındaki işleri yaz, ben unutmayayım'));
 }
 

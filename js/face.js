@@ -3,7 +3,8 @@
 // durum yazısıyla "Bugün" şeridi arasında Business butonu (#business); altta "Bugün" şeridi. Arkada, içeriğin altında hava efekti (weather-fx.js).
 // Halka ölçüleri GIF pikseli cinsinden (u); CSS'teki --u bunları ekran genişliğine ölçekler.
 import { h, svg, openSheet, closeSheet, toast, confirmTap } from './ui.js';
-import { getState, onChange, setField, countExamples, removeExamples, snapshot, restore } from './store.js';
+import { getState, onChange, setField, countExamples, removeExamples, snapshot, restore, getCache, setCache } from './store.js';
+import { blocksFor, blocksMarkup, createRingBlocks, seedOf, PER_ROW, PER_ROW_LITE } from './ring-blocks.js';
 import { computeStatus, whenLabel, todayCards, money, bizSummary } from './status.js';
 import {
   WINDY, describe, cachedForecast, refreshForecast, ageLabel,
@@ -93,8 +94,13 @@ function icon(name, cls) {
 
 /* ---------- Halka ---------- */
 
-function sliceLayer(mod, index) {
+/**
+ * Bir dilim: acil hale katmanı + taş bloklar (js/ring-blocks.js) + dokunma alanı (dilimin tam şekli, saydam)
+ * + ikon (blokların üstünde, ayrı katman). Döner: { layer, svgEl, blocks }.
+ */
+function sliceLayer(mod, index, perRow) {
   const s = SLICES[mod.id];
+  const blocks = blocksFor(s.rot, perRow, { seed: seedOf(mod.id), from: s.from, to: s.to });
   const d = slicePath(s.rot);
   const vb = `${-BOX} ${-BOX} ${BOX * 2} ${BOX * 2}`;
   const [ix, iy] = s.at;
@@ -109,29 +115,40 @@ function sliceLayer(mod, index) {
       <path d="${d}" filter="url(#glow-${mod.id})"/>
     </svg>`));
 
-  layer.append(svg(`
+  const svgEl = svg(`
     <svg class="slice-svg" viewBox="${vb}">
-      <defs><linearGradient id="grad-${mod.id}" gradientUnits="userSpaceOnUse"
-          x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}">
-        <stop offset="0" class="stop-1"/><stop offset=".45" class="stop-2"/><stop offset="1" class="stop-3"/>
-      </linearGradient></defs>
       <a class="slice-link" href="#${mod.route}" aria-label="${mod.title}">
-        <path class="slice-shape" d="${d}" fill="url(#grad-${mod.id})"/>
+        <path class="slice-shape" d="${d}"/>
+        ${blocksMarkup(blocks)}
         <path class="slice-rim" d="${d}"/>
-        <g class="slice-icon" transform="translate(${ix} ${iy}) scale(${s.scale}) translate(-12 -12)"
-           fill="none" stroke="currentColor" stroke-width="${f(2.6 / s.scale)}" stroke-linecap="round" stroke-linejoin="round">
-          ${ICONS[s.icon]}
-        </g>
       </a>
-    </svg>`));
+    </svg>`);
+  layer.append(svgEl);
 
-  return layer;
+  // İkon ayrı katmanda (ringIcons): blokların ve tamarinin bıyıklarının üstünde, hep sabit ve okunaklı.
+  const icon = `<g class="slice-icon" data-cat="${mod.id}" transform="translate(${ix} ${iy}) scale(${s.scale}) translate(-12 -12)"
+    fill="none" stroke="currentColor" stroke-width="${f(2.6 / s.scale)}" stroke-linecap="round" stroke-linejoin="round">${ICONS[s.icon]}</g>`;
+  return { layer, svgEl, blocks, icon };
 }
 
+/** Dört dilimin ikonları tek bir üst katmanda (dokunmayı alttaki dilime bırakır). */
+function ringIcons(slices) {
+  const vb = `${-BOX} ${-BOX} ${BOX * 2} ${BOX * 2}`;
+  return svg(`<svg class="ring-icons" viewBox="${vb}" aria-hidden="true">${slices.map((sl) => sl.icon).join('')}</svg>`);
+}
+
+/**
+ * Tamarin: referans/tamarin.jpg'den kesilmiş gerçek fotoğraf (tools/cut_tamarin.py). Kutu halka merkezli,
+ * kenarı 274u; srcset ile ekrana göre 768 ya da 1152 piksellik görsel (doğal boyutundan büyütülmez).
+ * Göz kırpma yok: fotoğrafta kapalı göz karesi yok, sentezlenen kapak yapay görünüyordu.
+ */
 function tamarinFigure() {
-  const open = h('img', { class: 'tamarin-img tamarin-open', src: 'assets/tamarin.webp', alt: '', draggable: 'false' });
-  const shut = h('img', { class: 'tamarin-img tamarin-shut', src: 'assets/tamarin-blink.webp', alt: '', draggable: 'false' });
-  const breath = h('div', { class: 'tamarin-breath' }, open, shut);
+  const img = h('img', {
+    class: 'tamarin-img', src: 'assets/tamarin-768.webp', alt: '', draggable: 'false', decoding: 'async',
+    srcset: 'assets/tamarin-768.webp 768w, assets/tamarin-1152.webp 1152w',
+    sizes: '(max-width: 560px) calc(100vw - 56px), 504px',
+  });
+  const breath = h('div', { class: 'tamarin-breath' }, img);
   const tilt = h('div', { class: 'tamarin-tilt' }, breath);
   return { figure: h('div', { class: 'tamarin', 'aria-hidden': 'true' }, tilt), tilt, breath };
 }
@@ -156,9 +173,13 @@ function setupTilt(screen, target) {
     target.style.transform = `rotateY(${f(x * MAX)}deg) rotateX(${f(-y * MAX)}deg) translate3d(${f(x * 5)}px, ${f(y * 4)}px, 0)`;
     const settled = Math.abs(goal[0] - x) < 0.002 && Math.abs(goal[1] - y) < 0.002;
     frame = settled ? 0 : requestAnimationFrame(step);
-    if (settled) last = 0;
+    if (settled) { last = 0; target.style.willChange = ''; }
   }
-  const kick = () => { if (!frame) frame = requestAnimationFrame(step); };
+  const kick = () => {
+    if (frame) return;
+    target.style.willChange = 'transform'; // yalnızca hareket süresince
+    frame = requestAnimationFrame(step);
+  };
 
   function aim(event) {
     const box = target.getBoundingClientRect();
@@ -177,20 +198,6 @@ function setupTilt(screen, target) {
   screen.addEventListener('pointerleave', release);
 }
 
-/** Tasarımdaki gibi ara sıra göz kırpar (gözleri kapalı kareye kısa süre geçer). */
-function setupBlink(screen, breath) {
-  const once = () => {
-    breath.classList.add('is-blinking');
-    setTimeout(() => breath.classList.remove('is-blinking'), 170);
-  };
-  const loop = () => {
-    if (!screen.isConnected) return;
-    once();
-    setTimeout(loop, 3200 + Math.random() * 3800);
-  };
-  setTimeout(loop, 2600);
-  return once;
-}
 /* ---------- Sheet'ler ---------- */
 
 const SECTION_TITLES = { bills: 'Ödemeler', school: 'Sınavlar ve teslimler', days: 'Doğum günleri ve özel günler', tasks: 'Görevler' };
@@ -386,10 +393,12 @@ export function createFaceScreen(modules) {
 
   /* Halka + tamarin + durum yazısı */
   const ring = h('div', { class: 'ring' });
-  ORDER.forEach((id, index) => ring.append(sliceLayer(byId[id], index)));
-  const { figure, tilt, breath } = tamarinFigure();
+  const perRow = getCache('blocksLite') ? PER_ROW_LITE : PER_ROW; // kare düşen cihazda sıra başına 7
+  const slices = ORDER.map((id, index) => ({ id, href: byId[id].route, ...sliceLayer(byId[id], index, perRow) }));
+  slices.forEach((sl) => ring.append(sl.layer));
+  const { figure, tilt } = tamarinFigure();
   const hit = h('button', { type: 'button', class: 'tamarin-hit', 'aria-label': 'Tamarine dokun' });
-  ring.append(figure, hit);
+  ring.append(figure, ringIcons(slices), hit);
   const ringWrap = h('nav', { class: 'ring-wrap', 'aria-label': 'Bölümler' }, ring);
   const message = h('p', { class: 'face-message', role: 'status' });
 
@@ -497,6 +506,7 @@ export function createFaceScreen(modules) {
   /** Ayı başlıkla halka arasındaki boş sağ üst köşeye yerleştirir. */
   function layoutScene() {
     if (!screen.isConnected) return;
+    unitPx = (ringWrap.getBoundingClientRect().width / 340) || 1;
     const top = header.getBoundingClientRect().bottom;
     const ringBox = ringWrap.getBoundingClientRect();
     const ringTop = ringBox.top + ringBox.height / 2 - (ringBox.width * 137) / 340;
@@ -508,12 +518,19 @@ export function createFaceScreen(modules) {
     update();
   }
 
-  const blinkNow = setupBlink(screen, breath);
   setupTilt(screen, tilt);
+
+  // Taş bloklar: açılış (oturum başına bir kez), boşta döngü, dokunma nefesi, dönüş dalgası.
+  let unitPx = 1; // 1 SVG birimi kaç CSS pikseli (layoutScene ölçer; animasyon sırasında okunmaz)
+  const blocksCtl = createRingBlocks({
+    layers: slices.map((sl) => ({ id: sl.id, el: sl.svgEl, blocks: sl.blocks, href: sl.href })),
+    isUrgent: (id) => status.urgentCats.has(id),
+    unit: () => unitPx,
+    onLite: () => setCache('blocksLite', true),
+  });
 
   hit.addEventListener('click', () => {
     playCall(status.mood);
-    blinkNow();
     figure.classList.remove('is-hop');
     void figure.offsetWidth;
     figure.classList.add('is-hop');
@@ -546,7 +563,7 @@ export function createFaceScreen(modules) {
   const timer = setInterval(() => (gone() ? cleanup() : update()), 30000);
   const onVisible = () => {
     if (gone()) return cleanup();
-    if (document.visibilityState === 'visible') { update(); loadWeather(); }
+    if (document.visibilityState === 'visible') { update(); loadWeather(); blocksCtl.resume(); } else blocksCtl.pause();
   };
   document.addEventListener('visibilitychange', onVisible);
   const resizer = new ResizeObserver(() => layoutScene());
@@ -564,6 +581,7 @@ export function createFaceScreen(modules) {
     layoutScene();
     document.fonts?.ready.then(layoutScene);
     fx.start();
+    blocksCtl.start();
   }, 0);
 
   function cleanup() {
@@ -577,6 +595,7 @@ export function createFaceScreen(modules) {
     resizer.disconnect();
     mountWatch.disconnect();
     fx.stop();
+    blocksCtl.destroy();
   }
 
   setRealForecast(cachedForecast(), false);

@@ -22,6 +22,8 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - `js/ics.js` — iPhone Takvimi'ne aktarma: RFC 5545 üretimi, kayıt türü kuralları, hash, paylaş / data: / indir
   - `js/weather.js` — hava durumu (tahmin, önbellek, şehir arama, WMO → Türkçe, efekt "sahnesi")
   - `js/weather-fx.js` — içeriğin arkasındaki tam ekran hava efekti canvas'ı
+  - `js/ring-blocks.js` — halkanın 4 dilimini taş bloklara bölen geometri (DOM'suz) ve blok animasyonları
+    (açılış, boşta döngü, dokunma nefesi, dönüş dalgası; Web Animations API)
   - `js/face.js` — ana ekran yüzü (başlık, halka, tamarin, Business butonu, "Bugün" şeridi, zil/tahmin/kayıt sheet'leri)
   - `js/status.js` — durum: acil olanlar, yaklaşanlar listesi, alttaki yazı, tamarinin ruh hali;
     telefon numarası biçimi ve doğal sıra (`formatPhone`, `sortPhones`, `MODEL_SHORT`); Business: özet
@@ -37,14 +39,16 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - `js/biz-ui.js` — Business'ın ortak parçaları: çizgi ikonlar, pano (30 sn sonra silinir), açık PIN'leri
     gizleme, Ek bilgiler düzenleyicisi, platform rozeti (`badge`), "Bunu Kasa'ya koy" uyarısı (`vaultGuard`)
   - `js/vault.js` — kasa çekirdeği: Web Crypto ile şifreleme, kilit, otomatik kilit, şifre üretici
-  - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`, `phones`, `business`: `node tests/<ad>.test.mjs`);
+  - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`, `phones`, `business`, `ring-blocks`: `node tests/<ad>.test.mjs`);
     `tests/fixtures/ornek.ics` örnek takvim (`.gitattributes`: `-text`, CRLF bayt bayt korunur)
   - `manifest.webmanifest`, `sw.js`, `icons/`
   - `README.md`, `docs/ekran-goruntusu.webp` (README görseli), `.nojekyll` (Pages dosyaları işlemesin)
-  - `assets/` — şeffaf tamarin görselleri (`tamarin.webp`, göz kırpma için `tamarin-blink.webp`). Görsel ve ondan
-    üretilen `icons/` proje sahibine ait (kaynağı referans/tasarim.gif); lisans sorusu kapandı, değiştirme önerme
-  - `referans/tasarim.gif` — ana ekranın yerleşim ve ölçü referansı (renkleri artık "Toprak" teması).
-    Yalnızca bu bilgisayarda: `.gitignore`'da, depoya girmez (tools/cut_tamarin.py okur)
+  - `assets/` — şeffaf tamarin görselleri `tamarin-768.webp` ve `tamarin-1152.webp` (aynı kare kadraj, srcset).
+    Göz kırpma karesi yok. Görsel ve ondan üretilen `icons/` proje sahibine ait (kaynağı referans/tamarin.jpg);
+    lisans sorusu kapandı, değiştirme önerme
+  - `referans/tasarim.gif` — ana ekranın yerleşim ve ölçü referansı (renkleri artık "Toprak" teması);
+    `referans/tamarin.jpg` — tamarinin kaynak fotoğrafı (1600x1067). İkisi de yalnızca bu bilgisayarda:
+    `.gitignore`'da, depoya girmez (tools/cut_tamarin.py okur)
   - `tools/` — yalnızca geliştirme araçları (yerel sunucu, tamarin kesici, ikon üretici, `phone-art.html`:
     tüm telefon çizimleri birkaç renkte yan yana); uygulama bunları yüklemez
 - **Kullanıcı:** Tek kullanıcı; ad ve şehir store'da (`name` varsayılan "Baha", `city` varsayılan
@@ -106,7 +110,12 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     iki satırlı selam bile hava sütunundan (≈60px) en çok ~1px uzun, başlık yüksekliği değişmez.
   - Ortada 4 dilimli mat halka — sol üst Ödemeler (kiremit, cüzdan), sağ üst Eğitim (arduvaz mavisi,
     kep), sol alt Özel Günler (gül kurusu, kalp), sağ alt Ajanda (adaçayı, takvim) — ve ortada tamarin.
+    Dilimler "bloklardan örülmüş iglo": taş bloklar (aşağıdaki **Halka blokları**). İkonlar ayrı bir üst
+    katmanda (`.ring-icons`), blokların ve tamarinin bıyıklarının üstünde, hep sabit ve okunaklı.
     Altında tamarinin durum yazısı: acil bir şey yoksa havaya göre konuşur.
+  - Tamarin gerçek fotoğraftan (aşağıdaki **Tamarin görseli**). Kutu halka merkezli, kenarı 274u (halkanın dış
+    çapı); bıyıklar dilimlerin üstüne taşar. Nefes 1 → 1.012 ölçek (transform). Eğilmede `will-change` yalnızca
+    hareket sürerken. Tamarin üzerinde blur/filter yok. Göz kırpma yok.
   - Business butonu: durum yazısıyla "Bugün" şeridi arasında (alt alanın üstünde), ekran genişliğine
     yakın, 44px yüksek, yuvarlak köşeli; solda ince çizgili çanta, "Business", sağda özet ("8 hat · 14 hesap",
     `bizSummary`) ve ›. Dokununca #business. Renk beşinci mat ton eski pirinç (`--biz-1..3`,
@@ -290,10 +299,42 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   renkler CSS değişkeni (`:root`). Modül ekranları, sheet'ler ve ikonlar aynı paleti kullanır.
 - **"Yapay zekâ işi" görünmesin:** Neon parlama, renkli/bulanık ışık lekeleri, parıltı çizgileri ve
   doygun gökkuşağı degradeleri yok. İstisnalar yalnızca: acil dilimin çevresinde nabız gibi atan
-  yumuşak hale (`.slice-glow`) ve Özel Günler kutlama kartının pembe halesi (`.d-hero.is-party`).
+  yumuşak hale (`.slice-glow`), Özel Günler kutlama kartının pembe halesi (`.d-hero.is-party`) ve halka
+  bloklarının aydınlanma örtüsü (`.blk-lit`: bloğun aynı şekilli, rengin açık tonundaki kopyası; yalnızca
+  opaklığı 0 → 0.55 (açılış) / 0.45 (boşta) → 0 hareket eder; parlama, glow, gölge ya da blur DEĞİL).
   Konfeti de paletin mat tonlarından (`--confetti-0..4`). Emoji yok.
 - **Hareket:** Animasyonlar yalnızca `transform`/`opacity` ile (telefonda akıcı kalsın; bulanıklık
   filtreleri sabit katmanlarda). `prefers-reduced-motion` açıksa sürekli animasyonlar durur.
+  İstisna (kullanıcı istedi): halka bloklarının animasyonu JS'ten Web Animations API (`element.animate`) ile
+  yürür, kuralları **Halka blokları**'nda; yine yalnızca transform ve opacity.
+- **Halka blokları (js/ring-blocks.js):**
+  - Yapı: her dilim, face.js'teki yuvarlatılmış çeyrek halkanın birebir şekli korunarak 3 radyal sıraya ve
+    sıra başına 8 bloğa bölünür; orta sıra yarım blok kaydırmalı (7 tam + 2 yarım): dilim başına 25, toplam
+    100 blok. Uç bloklar dilimin düz ucunu (eksenden 12.5) ve köşe yuvarlamasını (8) izler. Derz `JOINT`
+    1.25 birim (~1.3–1.7 px), blok köşeleri çok hafif yuvarlak. Her blok ayrı `<g class="blk">`: dolgu yolu,
+    üstte ince açık / altta ince koyu kabartma kenarı (ışık yukarıdan: üst yarıda dış yay "üst"), aydınlanma
+    örtüsü `.blk-lit`.
+  - Malzeme: dilimin rengi (degradedeki yerine göre cat-1 → cat-2 → cat-3, `color-mix`) + bloğa sabit tohumlu
+    (mulberry32, dilim adından) ±%3.5 açıklık farkı; her açılışta aynı. Doku için filter/blur YOK.
+  - Dokunma alanı blokların değil dilimin tam şekli (`.slice-shape`, saydam dolgu); bloklar ve ikonlar
+    `pointer-events: none`. Basılı tutma geri bildirimi yalnızca `.blk-wrap` opaklığı (0.88).
+  - Açılış (oturum başına bir kez): bloklar halkanın dışında dağınık, döndürülmüş, saydam başlar; dilim dilim
+    (sol üst → sağ üst → sağ alt → sol alt; dilimler 140 ms arayla), dilimde içten dışa ve uçtan uca dalga
+    (bloklar arası 22 ms), blok başına 520–700 ms, easing `cubic-bezier(0.22, 1, 0.36, 1)` + hafif içe aşma ve
+    oturma; toplam ~1.6 sn. Açılış oynayacaksa bloklar ilk karede gizli (ekran belirirken yerinde görünüp
+    dağılmasın). İkonlar 0.5 sn sonra opaklıkla belirir.
+  - Boşta döngü: 6–9 sn'de bir (acil dilim varsa 3–5 sn ve %70 acil dilim) tek dilimde 3–6 komşu blok sırayla
+    (110 ms) kalkar: dışa 6–10 px + yukarı 3–5 px, 4–10° dönme, scaleX/scaleY 0.92–1.04 (3B illüzyonu), 350–450 ms
+    havada, sonra hafif sekmeyle oturur. Aynı anda tek dilim.
+  - Dokunma: dilimin blokları kısa dalgayla 4–6 px dışa "nefes" alır (~200 ms + dalga), en çok 280 ms sonra modül
+    açılır. Modülden yüze dönüşte yalnızca girilen dilim ≤ 500 ms'lik mini dalgayla oturur.
+  - Sayfa gizliyken idle zamanlayıcı durur (pause/resume), yüz kapanınca (`cleanup`) tüm animasyonlar iptal
+    edilir. px → SVG birimi dönüşümü `layoutScene`'de ölçülür; animasyon sırasında layout okunmaz/yazılmaz.
+  - `prefers-reduced-motion`: açılış ve idle yok; dokunmada yalnızca kısa opaklık geri bildirimi.
+  - Performans: açılışta kare süreleri izlenir (sayfa görünürken; 250 ms'den uzun duraklamalar sayılmaz); kareler
+    düşüyorsa (%25'ten fazlası > 24 ms ya da ortalama > 21 ms) `cache.blocksLite` yazılır ve sonraki çizimde sıra
+    başına 7 blok (dilim başına 22).
+  - Test: `node tests/ring-blocks.test.mjs` (blok sayısı, yay sınırları, derz, aynı tohum → aynı ton, malzeme).
 - **Tarihler:** Yerel saat (Europe/Istanbul), Türkçe gün/ay adları.
 
 ## Kasa güvenlik kuralları
@@ -343,7 +384,8 @@ harfiyen uyulur, gevşetilmez:
   biçimi, PIN'de baştaki 0, geçersiz numara/PIN, model/renk, ek bilgi sınırları, doğal sıra, yedek, çizim),
   `node tests/business.test.mjs` (numara/PIN, model/renk/platform/durum, gizli alanların atılması, ek bilgi
   sınırları, doğal sıra ve "Hat yok", Telegram'ın Türkçe alfabetik sırası, boş siluet, telefon silinince bağın kopması + Geri al, bilinmeyen phoneId, arama
-  ve PIN'de aramama, yedek, ui.bizTab, "Bunu Kasa'ya koy" sözcükleri, Bybit sade kayıt ve eski alanların korunması, sürüm bazlı tohum, Business özeti).
+  ve PIN'de aramama, yedek, ui.bizTab, "Bunu Kasa'ya koy" sözcükleri, Bybit sade kayıt ve eski alanların korunması, sürüm bazlı tohum, Business özeti),
+  `node tests/ring-blocks.test.mjs` (blok sayısı, yay sınırları, derz, tohumlu tonlar, malzeme kuralları).
 - Izgara içindeki yatay kayan şeritler sayfayı genişletmesin: kapsayıcıya
   `grid-template-columns: minmax(0, 1fr)` ya da `min-width: 0` ver; 375px'te `scrollWidth` kontrol et.
 - Yayın: GitHub Pages, `main` dalının kökü → https://mustafabahafaik.github.io/tamarin/. Depo herkese açık:
@@ -351,10 +393,22 @@ harfiyen uyulur, gevşetilmez:
   Tek istisna (kullanıcı açıkça istedi, riskini bilerek): js/phones-seed.js'teki telefon numaraları ve SIM PIN'leri.
 - Yerel sunucu: `node tools/serve.mjs` → http://localhost:5190/tamarin/
   (GitHub Pages'teki alt yolu taklit eder; telefondan bakmak için `--lan`).
-- Tamarini kes: `python tools/cut_tamarin.py` (rembg + Pillow; referans/tasarim.gif karelerinden;
-  neon yansımalarını silip Toprak temasına göre ısıtır).
-  Gerçek fotoğraf için `--photo referans/tamarin.jpg`. Ardından ikonları yeniden üret:
-  `python tools/make_icons.py`.
+- **Tamarin görseli:** `python tools/cut_tamarin.py --photo referans/tamarin.jpg` (rembg isnet + pymatting +
+  numpy + Pillow; ~1 dk), ardından `python tools/make_icons.py`. Adımlar:
+  1. rembg yumuşak maskesinden trimap; arada pymatting closed-form alfa (bıyık ve kulak kılları). Model maskesi
+     ile büyüğü alınır (tel kopmasın).
+  2. Renk arındırma: pymatting `estimate_foreground_ml`; kenarda yeşil/koyu arka plan saçağı kalmaz.
+  3. Kadraj: gözlerin ortası halka merkezinin 12u üstünde, ölçek 0.245 u/fotoğraf pikseli, kare kenarı 2 × 137u
+     (= 1118 fotoğraf pikseli). Fotoğrafın üst kenarı kafayı kestiği için tepe 70 pikselde yumuşakça erir.
+  4. Halka maskesi: deliğin içi kalır; bantta yalnızca bıyık telleri (parlak, az doygun); koyu kürk üstte iç
+     kenara ~10u taşar (kulaklar), altta 34u'luk geniş geçişle erir (omuzlar).
+  5. Renk doğal, yalnızca +%4 sıcaklık; doygunluk artırma, keskinleştirme, HDR yok.
+  6. Çıktı `assets/tamarin-1152.webp` ve `-768`, WebP kalite 88, alfa. En büyük ekranda (430×932, DPR 3) kutu
+     274u ≈ 374 CSS px → 1122 cihaz pikseli; 1152 görsel bunu karşılar (kaynak 1118 px, yani en büyük ekranda
+     bile ~1:1; fotoğraftan fazla detay yoktur). `<img srcset>` + `sizes`: 768 / 1152.
+  7. Göz kırpma YOK: fotoğrafta kapalı göz karesi yok; kürkten sentezlenen kapak yakından yapay göründü.
+  Eski GIF yolu (`python tools/cut_tamarin.py`, referans/tasarim.gif) yalnızca geçmiş için duruyor; yeni kadrajla
+  uyumlu değil.
 - Service worker network-first. Yeni bir uygulama dosyası eklenince `sw.js` içindeki
   `SHELL` listesine de ekle ve `CACHE` sürümünü artır.
 - Yüz ekranı kurulurken gelen olaylar (ör. önbellekten yüklenen hava) ekran henüz sayfaya

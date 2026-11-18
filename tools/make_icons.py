@@ -1,10 +1,10 @@
 """Tamarin ikonlarını üretir: "Toprak" teması — sıcak koyu zemin, mat 4 renkli halka, ortada tamarin.
 
 Kullanım (proje kökünden):  python tools/make_icons.py
-Gerekli: Pillow. Önce assets/tamarin.webp olmalı (tools/cut_tamarin.py üretir).
+Gerekli: Pillow. Önce assets/tamarin-1152.webp olmalı (tools/cut_tamarin.py --photo üretir).
 
 Geometri yüz ekranıyla aynıdır (js/face.js): halka iç/dış yarıçapı 96/137, dilim arası 25,
-köşe 8; tamarin kutusu halka merkezine göre (-120.5, -107), kenarı 224. Hepsi `k` ile ölçeklenir.
+köşe 8; tamarin kutusu halka merkezli, kenarı 274 (halkanın dış çapı). Hepsi `k` ile ölçeklenir.
 Zemin saydamsızdır; iOS köşeleri kendisi yuvarlar.
 """
 import math
@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "icons"
-TAMARIN = ROOT / "assets" / "tamarin.webp"
+TAMARIN = ROOT / "assets" / "tamarin-1152.webp"
 
 BG = (22, 18, 15)        # --bg (#16120f)
 BG_LIGHT = (31, 26, 22)  # --bg-light: ortadaki hafif aydınlık
@@ -110,9 +110,9 @@ def draw_icon(size: int, ring_radius: float) -> Image.Image:
     img.alpha_composite(slices)
 
     tamarin = Image.open(TAMARIN).convert("RGBA")
-    box = round(224 * k)
-    tamarin = tamarin.resize((box, box), Image.LANCZOS)
-    img.alpha_composite(tamarin, (round(cx - 120.5 * k), round(cy - 107 * k)))
+    box = round(274 * k)
+    tamarin = tamarin.resize((box, box), Image.LANCZOS)  # küçültme: yüz keskin kalır
+    img.alpha_composite(tamarin, (round(cx - box / 2), round(cy - box / 2)))
 
     return img.convert("RGB").resize((size, size), Image.LANCZOS)
 

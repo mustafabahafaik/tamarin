@@ -92,7 +92,7 @@ function row(r) {
 
 function emptyState() {
   return h('div', { class: 'b-empty' },
-    h('div', { class: 'b-empty-tamarin', 'aria-hidden': 'true' }, h('img', { src: 'assets/tamarin.webp', alt: '', draggable: 'false' })),
+    h('div', { class: 'b-empty-tamarin', 'aria-hidden': 'true' }, h('img', { src: 'assets/tamarin-768.webp', alt: '', draggable: 'false' })),
     h('p', { class: 'b-empty-text' }, 'Kira, aidat, faturalar... İlk ödemeni ekle'),
     h('button', { type: 'button', class: 'btn btn-primary b-empty-btn', onclick: () => openForm() }, 'Ödeme ekle'));
 }

@@ -13,7 +13,9 @@ web uygulaması (PWA). Ödemeleri, ders programını, sınavları, doğum günle
 ## Özellikler
 
 - **Ana ekran:** saate göre selamlama, hava durumu ve 4 günlük tahmin, dört dilimli halka (Ödemeler,
-  Eğitim, Özel Günler, Ajanda), acil bir şey varsa çalan zil ve "Bugün" kartları. Arka planda havaya göre
+  Eğitim, Özel Günler, Ajanda), acil bir şey varsa çalan zil ve "Bugün" kartları. Halkanın dilimleri taş
+  bloklardan örülü: açılışta bloklar uçup yerine oturur, ara sıra birkaç blok kalkıp yerine döner, dokununca
+  dilim "nefes" alır (hareket azaltma açıksa hepsi durur). Ortada gerçek fotoğraftan kesilmiş, keskin bir tamarin. Arka planda havaya göre
   yağmur, kar, güneş ışını gibi hafif efektler.
 - **Ödemeler:** kira, aidat, faturalar ve abonelikler; aylık özet, vade ve gecikme etiketleri, tek dokunuşla
   "ödendi".
@@ -71,9 +73,11 @@ Framework ve derleme adımı yok: saf HTML, CSS ve JavaScript modülleri.
 
 ```bash
 node tools/serve.mjs          # http://localhost:5190/tamarin/  (telefondan bakmak için --lan)
-node tests/vault.test.mjs     # diğerleri: bills, school, days, tasks, ics, phones, business
+node tests/vault.test.mjs     # diğerleri: bills, school, days, tasks, ics, phones, business, ring-blocks
 ```
 
 ## Görseller
 
 Tamarin görseli ve ondan üretilen uygulama simgeleri (`assets/`, `icons/`) bu projenin sahibine aittir.
+Görsel `python tools/cut_tamarin.py --photo referans/tamarin.jpg` ile, simgeler `python tools/make_icons.py` ile
+üretilir (kaynak fotoğraf depoda yok).

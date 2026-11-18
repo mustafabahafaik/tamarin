@@ -122,7 +122,7 @@ function filters() {
 
 function emptyState() {
   return h('div', { class: 'd-empty' },
-    h('div', { class: 'd-empty-tamarin', 'aria-hidden': 'true' }, h('img', { src: 'assets/tamarin.webp', alt: '', draggable: 'false' })),
+    h('div', { class: 'd-empty-tamarin', 'aria-hidden': 'true' }, h('img', { src: 'assets/tamarin-768.webp', alt: '', draggable: 'false' })),
     h('p', { class: 'd-empty-text' }, 'Sevdiklerinin doğum günlerini ekle, sana bir gün önceden haber vereyim'),
     h('button', { type: 'button', class: 'btn btn-primary d-empty-btn', onclick: () => openForm() }, 'Özel gün ekle'));
 }

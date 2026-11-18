@@ -136,7 +136,7 @@ function lockView() {
   const message = h('p', { class: 'v-error', role: 'alert' });
   const open = h('button', { type: 'submit', class: 'btn btn-primary btn-block' }, 'Kilidi aç');
   const form = h('form', { class: 'form v-lock' },
-    h('div', { class: 'v-tamarin', 'aria-hidden': 'true' }, h('img', { src: 'assets/tamarin-blink.webp', alt: '', draggable: 'false' })),
+    h('div', { class: 'v-tamarin', 'aria-hidden': 'true' }, h('img', { src: 'assets/tamarin-768.webp', alt: '', draggable: 'false' })),
     h('h2', { class: 'v-title' }, 'Kasa kilitli'),
     h('p', { class: 'hint' }, 'Ana şifrenle aç.'),
     pass.field, message, open);
