@@ -19,7 +19,7 @@ async function test(name, fn) {
 S.resetAll();
 
 const phone = (extra = {}) => ({ name: 'deneme', number: '0555 000 00 01', pin: '7319', model: 'iPhone 12', color: 'Mavi', ...extra });
-const account = (extra = {}) => ({ platform: 'Bybit', label: 'Bybit 1', username: 'ornek1@posta.test', uid: '100200300', ...extra });
+const account = (extra = {}) => ({ platform: 'Bybit', label: 'Eren', username: 'ornek1@posta.test', uid: '100200300', ...extra });
 
 await test('numara: boşluklu/tireli giriş rakama çevrilir, biçim "0555 000 00 01"; boş olabilir', () => {
   assert.equal(S.add('phones', phone({ number: '0555-000-00-02' })).number, '05550000002');
@@ -87,26 +87,39 @@ await test('doğal sıralama: faik2 < faik10; hesaplar telefonun sırasıyla, "H
   const p2 = S.add('phones', phone({ name: 'faik2', number: '05550000002' }));
   const p1 = S.add('phones', phone({ name: 'Faik1', number: '05550000001' }));
   assert.deepEqual(St.sortPhones(S.getState().phones).map((p) => p.name), ['Faik1', 'faik2', 'faik10']);
-  S.add('accounts', account({ label: 'Bybit 3', phoneId: p10.id }));
-  S.add('accounts', account({ label: 'Bybit 10', phoneId: p2.id }));
-  S.add('accounts', account({ label: 'Bybit 2', phoneId: p2.id }));
-  S.add('accounts', account({ label: 'Bybit 9' }));
-  S.add('accounts', account({ label: 'Bybit 4', phoneId: p1.id }));
+  S.add('accounts', account({ label: 'Mert', phoneId: p10.id }));
+  S.add('accounts', account({ label: 'Zeynep', phoneId: p2.id }));
+  S.add('accounts', account({ label: 'Ali', phoneId: p2.id }));
+  S.add('accounts', account({ label: 'Deniz' }));
+  S.add('accounts', account({ label: 'Eren', phoneId: p1.id }));
   const groups = St.accountGroups(S.getState().accounts, S.getState().phones);
   assert.deepEqual(groups.map((g) => g.title), ['', 'Hat yok']);
-  assert.deepEqual(groups[0].items.map((a) => a.label), ['Bybit 4', 'Bybit 2', 'Bybit 10', 'Bybit 3']);
-  assert.deepEqual(groups[1].items.map((a) => a.label), ['Bybit 9']);
-  assert.equal(St.nextLabel(S.getState().accounts, 'Bybit'), 'Bybit 11');
-  assert.equal(St.nextLabel(S.getState().accounts, 'OKX'), 'OKX 1');
+  assert.deepEqual(groups[0].items.map((a) => a.label), ['Eren', 'Ali', 'Zeynep', 'Mert']);
+  assert.deepEqual(groups[1].items.map((a) => a.label), ['Deniz']);
+});
+
+await test('Telegram sırası: etikete göre alfabetik, Türkçe harf sırasıyla (telefonsuzlar da aynı listede)', () => {
+  const tg = ['Zeynep', 'Çağrı', 'Eren', 'İrem', 'Ilgın', 'Cem', 'Şule', 'Sena', 'Ömer', 'Oğuz'].map((label, i) => ({ id: `t${i}`, platform: 'Telegram', label, phoneId: i % 2 ? '' : 'p' }));
+  assert.deepEqual(St.sortByLabel(tg).map((a) => a.label), ['Cem', 'Çağrı', 'Eren', 'Ilgın', 'İrem', 'Oğuz', 'Ömer', 'Sena', 'Şule', 'Zeynep']);
+  assert.equal(tg[0].label, 'Zeynep'); // kopyayı sıralar, listeye dokunmaz
+});
+
+await test('çizim: telefonsuz hesap için kesik çizgili boş siluet (renk yok, logo yok)', async () => {
+  const A = await import('../js/phone-art.js');
+  const out = A.phoneSilhouette(44);
+  assert.match(out, /^<svg [^>]*width="44"/);
+  assert.match(out, /stroke-dasharray/);
+  assert.match(out, /var\(--pa-dash\)/);
+  assert.ok(!/--case-/.test(out));
 });
 
 await test('telefon silinince bağlı hesapların phoneId\'si "" olur; Geri al ikisini birlikte getirir', () => {
   S.resetAll();
   const p = S.add('phones', phone({ name: 'hat1', number: '05550000021' }));
   const other = S.add('phones', phone({ name: 'hat2', number: '05550000022' }));
-  const t = S.add('accounts', account({ platform: 'Telegram', label: 'Telegram 1', username: '@ornek_tg', phoneId: p.id }));
+  const t = S.add('accounts', account({ platform: 'Telegram', label: 'Selin', username: '@ornek_tg', phoneId: p.id }));
   const b = S.add('accounts', account({ phoneId: p.id }));
-  const o = S.add('accounts', account({ platform: 'OKX', label: 'OKX 1', phoneId: other.id }));
+  const o = S.add('accounts', account({ platform: 'OKX', label: 'Ayşe', phoneId: other.id }));
   const before = S.snapshot();
   let events = 0;
   const off = S.onChange(() => events++);
@@ -134,7 +147,7 @@ await test('bilinmeyen phoneId: ekleme/güncellemede, yüklemede ve yedekte "" o
 
   const saved = mem.get('tamarin.v1');
   mem.set('tamarin.v1', JSON.stringify({ version: 2, phoneSeed: 99, phones: [{ id: 'p1', name: 'hat', number: '05550000041' }],
-    accounts: [{ id: 'a1', platform: 'OKX', label: 'OKX 1', phoneId: 'p1' }, { id: 'a2', platform: 'OKX', label: 'OKX 2', phoneId: 'silinmis' }] }));
+    accounts: [{ id: 'a1', platform: 'OKX', label: 'Ayşe', phoneId: 'p1' }, { id: 'a2', platform: 'OKX', label: 'Burak', phoneId: 'silinmis' }] }));
   const fresh = await import(`../js/store.js?bag=${Date.now()}`);
   assert.deepEqual(fresh.getState().accounts.map((x) => x.phoneId), ['p1', '']);
   assert.equal(fresh.getState().phones.length, 1); // phoneSeed ileri: tohum eklenmez
@@ -149,9 +162,9 @@ await test('arama: ad, numara (boşluklu da), kullanıcı adı, UID, bağlı tel
   S.resetAll();
   const a1 = S.add('phones', phone({ name: 'faik1', number: '05550000051', pin: '7319' }));
   const a2 = S.add('phones', phone({ name: 'faik2', number: '05550000052', pin: '0864' }));
-  S.add('accounts', account({ platform: 'Telegram', label: 'Telegram 1', username: '@kum_kedisi', uid: '4400112233', phoneId: a1.id }));
-  S.add('accounts', account({ platform: 'Bybit', label: 'Bybit 7', username: 'deniz@posta.test', uid: '55667788', phoneId: a2.id }));
-  S.add('accounts', account({ platform: 'OKX', label: 'OKX 1', username: 'okx1@posta.test', uid: '99001122' }));
+  S.add('accounts', account({ platform: 'Telegram', label: 'Selin', username: '@kum_kedisi', uid: '4400112233', phoneId: a1.id }));
+  S.add('accounts', account({ platform: 'Bybit', label: 'Kaan', username: 'deniz@posta.test', uid: '55667788', phoneId: a2.id }));
+  S.add('accounts', account({ platform: 'OKX', label: 'Ayşe', username: 'okx1@posta.test', uid: '99001122' }));
   const st = S.getState();
   const phones = (q) => St.searchPhones(st.phones, st.accounts, q).map((p) => p.name);
   const accs = (q, pf) => St.searchAccounts(st.accounts, st.phones, q, pf).map((a) => a.label);
@@ -163,11 +176,11 @@ await test('arama: ad, numara (boşluklu da), kullanıcı adı, UID, bağlı tel
   assert.deepEqual(phones('+90 555 000 00 51'), ['faik1']);
   assert.deepEqual(phones('kum_kedisi'), ['faik1']); // o hattaki hesabın kullanıcı adı
   assert.deepEqual(phones('55667788'), ['faik2']);   // o hattaki hesabın UID'si
-  assert.deepEqual(accs('deniz'), ['Bybit 7']);
-  assert.deepEqual(accs('99001122'), ['OKX 1']);
-  assert.deepEqual(accs('faik1'), ['Telegram 1']);   // bağlı telefonun adı
-  assert.deepEqual(accs('0555 000 00 52'), ['Bybit 7']);
-  assert.deepEqual(accs('', 'OKX'), ['OKX 1']);
+  assert.deepEqual(accs('deniz'), ['Kaan']);
+  assert.deepEqual(accs('99001122'), ['Ayşe']);
+  assert.deepEqual(accs('faik1'), ['Selin']);   // bağlı telefonun adı
+  assert.deepEqual(accs('0555 000 00 52'), ['Kaan']);
+  assert.deepEqual(accs('', 'OKX'), ['Ayşe']);
   assert.deepEqual(accs('deniz', 'Telegram'), []);
   // PIN'de aramaz
   for (const pin of ['7319', '0864']) {
@@ -179,8 +192,8 @@ await test('arama: ad, numara (boşluklu da), kullanıcı adı, UID, bağlı tel
 await test('yedek: telefonlar ve hesaplar dışa aktarılır, doğrulanır ve geri yüklenir (bağlar ve PIN korunur)', () => {
   S.resetAll();
   const p = S.add('phones', phone({ name: 'yedek', number: '05550000061', pin: '0123', extra: [{ label: 'IMEI', value: '000000000000000' }] }));
-  S.add('accounts', account({ label: 'Bybit 1', phoneId: p.id, twofa: true, status: 'KYC tamam', extra: [{ label: 'Ülke', value: 'TR' }] }));
-  S.add('accounts', account({ platform: 'Telegram', label: 'Telegram 1', username: '@ornek' }));
+  S.add('accounts', account({ label: 'Eren', phoneId: p.id, twofa: true, status: 'KYC tamam', extra: [{ label: 'Ülke', value: 'TR' }] }));
+  S.add('accounts', account({ platform: 'Telegram', label: 'Selin', username: '@ornek' }));
   const backup = JSON.parse(JSON.stringify(S.exportData()));
   assert.equal(backup.data.accounts.length, 2);
   const check = S.validateBackup(backup);
@@ -194,7 +207,7 @@ await test('yedek: telefonlar ve hesaplar dışa aktarılır, doğrulanır ve ge
   assert.deepEqual([counts.phones, counts.accounts], [1, 2]);
   const restored = S.getState();
   assert.equal(restored.phones[0].pin, '0123');
-  const bybit = restored.accounts.find((a) => a.label === 'Bybit 1');
+  const bybit = restored.accounts.find((a) => a.label === 'Eren');
   assert.equal(bybit.phoneId, restored.phones[0].id);
   assert.deepEqual([bybit.twofa, bybit.status, bybit.extra[0].value], [true, 'KYC tamam', 'TR']);
 

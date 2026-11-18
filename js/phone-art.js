@@ -61,6 +61,20 @@ function camera(kind, x, y, cased) {
 }
 
 /**
+ * Bağlı telefonu olmayan hesap için boş telefon silueti: kesik çizgili gövde, içi boş (renk yok).
+ * Ölçüsü phoneArt'la aynı (SE/8 gövdesi), satırda çizimlerle hizalı durur.
+ */
+export function phoneSilhouette(size = 44, cls = 'phone-art phone-empty') {
+  const body = BODIES['iPhone 8'];
+  const x = (VIEW_W - body.w) / 2;
+  const y = (VIEW_H - body.h) / 2;
+  return `<svg class="${cls}" viewBox="0 0 ${VIEW_W} ${VIEW_H}" width="${n(size)}" height="${n(size * (VIEW_H / VIEW_W))}" aria-hidden="true" focusable="false">`
+    + rect(x, y, body.w, body.h, body.rx, 'fill: none; stroke: var(--pa-dash); stroke-width: 1.8; stroke-dasharray: 5 4')
+    + circle(x + 9, y + 9, 4.4, 'fill: none; stroke: var(--pa-dash); stroke-width: 1.4; stroke-dasharray: 2.5 2.2')
+    + '</svg>';
+}
+
+/**
  * Telefonun arkasının SVG işaretlemesi.
  * @param {string} model  PHONE_MODELS'ten biri (bilinmeyen → "Diğer")
  * @param {string} color  CASE_COLORS'tan biri; kılıflıysa kılıfın, değilse gövdenin rengi

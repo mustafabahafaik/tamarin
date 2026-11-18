@@ -1,9 +1,10 @@
 // Business > Telegram / Bybit / OKX (#business/telegram …): hatlarda açılmış hesaplar. Ekranı
 // js/modules/business.js kurar; burada satır, ayrıntı ve form var. Hesapta şifre, 2FA anahtarı, yedek kod ya da
 // kurtarma ifadesi YOK: onlar Kasa'ya (#kasa). Not / Ek bilgiler'e böyle bir şey yazılırsa form uyarır.
-import { h, openSheet, closeSheet, toast, confirmTap } from '../ui.js';
+import { h, svg, openSheet, closeSheet, toast, confirmTap } from '../ui.js';
 import { getState, add, update, remove, snapshot, restore, PLATFORMS, ACCOUNT_STATUSES } from '../store.js';
-import { sortPhones, nextLabel } from '../status.js';
+import { sortPhones } from '../status.js';
+import { phoneSilhouette } from '../phone-art.js';
 import { field as formField, pickGrid, focusFirstError } from '../form.js';
 import { icon, PLAIN, info, copyRow, badge, extraEditor, vaultGuard } from '../biz-ui.js';
 import { art, numberText, openPhoneDetail } from './phones.js';
@@ -22,21 +23,35 @@ const phoneOf = (account) => getState().phones.find((p) => p.id === account.phon
 
 /* ---------- Liste ---------- */
 
+/** Satırın solu: bağlı telefonun kendi model/kılıf renginde çizimi; telefon yoksa kesik çizgili boş siluet. */
+const lineArt = (phone) => h('span', { class: 'a-row-art' }, phone ? art(phone, 44) : svg(phoneSilhouette(44)));
+
+/**
+ * Telegram satırı: YALNIZCA bağlı telefonun çizimi ve büyük, kalın etiket ("Eren"). Telefon adı, numara,
+ * kullanıcı adı, durum ve rozet satırda yok; ayrıntıda durur.
+ * Bybit / OKX satırı: çizim, etiket (kalın) + altında küçük e-posta, sağda durum etiketi.
+ */
 export function accountRow(account, phone) {
+  const line = phone ? phone.name : 'hat yok';
+  if (!isExchange(account.platform)) {
+    return h('li', {},
+      h('button', {
+        type: 'button', class: `a-row a-row-tg${account.status === 'Kapalı' ? ' is-closed' : ''}`,
+        onclick: () => openAccountDetail(account.id), 'aria-label': `${account.label}, ${line}`,
+      }, lineArt(phone), h('span', { class: 'a-row-tg-name' }, account.label)));
+  }
   return h('li', {},
     h('button', {
       type: 'button',
       class: `a-row${account.status === 'Kapalı' ? ' is-closed' : ''}`,
       onclick: () => openAccountDetail(account.id),
-      'aria-label': `${account.label}, ${account.username || 'kullanıcı adı yok'}, ${account.status}, ${phone ? phone.name : 'hat yok'}`,
+      'aria-label': `${account.label}, ${account.username || 'e-posta yok'}, ${account.status}, ${line}`,
     },
-    badge(account.platform),
+    lineArt(phone),
     h('span', { class: 'a-row-text' },
       h('span', { class: 'a-row-name' }, account.label),
-      h('span', { class: `a-row-user${account.username ? '' : ' is-empty'}` }, account.username || (isExchange(account.platform) ? 'E-posta yok' : 'Kullanıcı adı yok'))),
-    h('span', { class: 'a-row-meta' },
-      statusChip(account.status),
-      phone && h('span', { class: 'a-row-phone' }, art(phone, 11, 'phone-art a-row-phone-art'), h('span', {}, phone.name)))));
+      h('span', { class: `a-row-user${account.username ? '' : ' is-empty'}` }, account.username || 'E-posta yok')),
+    h('span', { class: 'a-row-meta' }, statusChip(account.status))));
 }
 
 /* ---------- Ayrıntı ---------- */
@@ -90,7 +105,7 @@ function phonePicker(value) {
     type: 'button', role: 'radio', class: 'a-phone', dataset: { value: id }, 'aria-label': label,
     onclick: () => { current = id; paint(); },
   }, ...content);
-  grid.append(option('', [h('span', { class: 'a-phone-none', 'aria-hidden': 'true' }, '—'), h('span', { class: 'a-phone-text' }, h('span', { class: 'a-phone-name' }, 'Hat yok'))], 'Hat yok'));
+  grid.append(option('', [h('span', { class: 'a-phone-art' }, svg(phoneSilhouette(16))), h('span', { class: 'a-phone-text' }, h('span', { class: 'a-phone-name' }, 'Hat yok'))], 'Hat yok'));
   for (const p of phones) {
     grid.append(option(p.id, [
       h('span', { class: 'a-phone-art' }, art(p, 16)),
@@ -105,12 +120,11 @@ function phonePicker(value) {
 export function openAccountForm(account = null, preset = {}) {
   const errors = {};
   const field = (key, label, control, hint) => formField(errors, key, label, control, hint);
-  const accounts = getState().accounts;
   let platform = account?.platform ?? (PLATFORMS.includes(preset.platform) ? preset.platform : PLATFORMS[0]);
   let status = account?.status ?? 'Aktif';
   let twofa = account?.twofa ?? false;
 
-  const label = h('input', { class: 'input', id: 'a-label', ...PLAIN, autocapitalize: 'words', maxlength: '40' });
+  const label = h('input', { class: 'input', id: 'a-label', ...PLAIN, autocapitalize: 'words', maxlength: '40', placeholder: 'Örn. Eren' });
   const user = h('input', { class: 'input', id: 'a-user', ...PLAIN, autocapitalize: 'off', maxlength: '80' });
   const uid = h('input', { class: 'input', id: 'a-uid', ...PLAIN, autocapitalize: 'off', maxlength: '40', inputmode: 'numeric' });
   const note = h('textarea', { class: 'input p-textarea', id: 'a-note', rows: '3', maxlength: '1000', placeholder: 'Ne için kullanılıyor…' });
@@ -123,7 +137,6 @@ export function openAccountForm(account = null, preset = {}) {
   const uidTitle = h('span', { class: 'field-label' });
   // Platforma göre ipuçları: Telegram @kullanıcıadı, borsalar e-posta.
   const paintPlatform = () => {
-    label.placeholder = account ? '' : nextLabel(accounts, platform);
     userTitle.textContent = userLabel(platform);
     uidTitle.textContent = isExchange(platform) ? 'UID' : 'Telegram ID';
     user.placeholder = isExchange(platform) ? 'ornek@posta.com' : '@kullaniciadi';
@@ -162,7 +175,7 @@ export function openAccountForm(account = null, preset = {}) {
 
   const form = h('form', { class: 'form', novalidate: true, dataset: { cat: 'business' } },
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Platform'), platforms.el),
-    field('label', 'Etiket', label, 'Örn. Bybit 3. Listede bu adla görünür.'),
+    field('label', 'Etiket', label, 'Listede bu adla görünür.'),
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Telefon (hat)'), phones.el),
     userField,
     uidField,
@@ -187,7 +200,7 @@ export function openAccountForm(account = null, preset = {}) {
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    const name = label.value.trim() || (account ? '' : nextLabel(getState().accounts, platform));
+    const name = label.value.trim();
     if (!name) { errors.label.textContent = 'Etiket boş olamaz.'; focusFirstError(form); return; }
     if (!guard.allow()) return; // "Bunu Kasa'ya koy": bir kez uyar, ikinci dokunuşta kaydet
 

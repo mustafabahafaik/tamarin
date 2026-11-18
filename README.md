@@ -24,7 +24,7 @@ web uygulaması (PWA). Ödemeleri, ders programını, sınavları, doğum günle
 - **Şifre kasası:** uygulama şifreleri için ana şifreyle açılan, şifreli bir kasa.
 - **Business:** ana ekrandaki Business butonuyla açılır. Telefonlar, hatları ve SIM PIN'leri ile bu hatlarda
   açılmış Telegram, Bybit ve OKX hesapları tek yerde ve birbirine bağlı: telefonda "Bu hatta" hangi hesapların
-  olduğu, hesapta hangi telefona bağlı olduğu görünür. Ad, numara, kullanıcı adı ve UID'de arama. Telefonlar
+  olduğu, hesapta hangi telefona bağlı olduğu görünür. Telegram listesinde her hesap adıyla ve bağlı telefonun çizimiyle durur. Ad, numara, kullanıcı adı ve UID'de arama. Telefonlar
   modeline ve kılıf rengine göre çizilir. PIN listede görünmez, istenince kısa süre gösterilir ve kopyalanınca
   panodan silinir. Hesap şifreleri, 2FA anahtarları ve kurtarma ifadeleri burada tutulmaz; Kasa'ya konur.
 - **Takvime aktarma:** kayıtları iPhone Takvimi'ne `.ics` olarak gönderir; hatırlatmaları Takvim verir.

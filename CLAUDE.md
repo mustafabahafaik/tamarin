@@ -26,9 +26,10 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - `js/status.js` — durum: acil olanlar, yaklaşanlar listesi, alttaki yazı, tamarinin ruh hali;
     telefon numarası biçimi ve doğal sıra (`formatPhone`, `sortPhones`, `MODEL_SHORT`); Business: özet
     (`bizSummary`), arama (`searchPhones`, `searchAccounts`; PIN'de aramaz), `accountGroups`, `accountsOf`,
-    `nextLabel`, "Bunu Kasa'ya koy" sözcükleri (`vaultWords`)
+    Telegram'ın alfabetik sırası (`sortByLabel`, localeCompare 'tr'), "Bunu Kasa'ya koy" sözcükleri (`vaultWords`)
   - `js/phones-seed.js` — Baha'nın telefonları (ad, numara, SIM PIN, model, kılıf): açılışta bir kez eklenir
-  - `js/phone-art.js` — `phoneArt(model, color, cased, size)`: telefonun arkasının SVG işaretlemesi (DOM'suz)
+  - `js/phone-art.js` — `phoneArt(model, color, cased, size)`: telefonun arkasının SVG işaretlemesi (DOM'suz);
+    `phoneSilhouette(size)`: telefonsuz hesap için kesik çizgili boş siluet (`--pa-dash`)
   - `js/sound.js` — Web Audio ile sentezlenen tamarin sesleri
   - `js/settings.js` — Ayarlar ekranı (sol üstteki kullanıcıya dokununca açılan sheet)
   - `js/modules/*.js` — `bills`, `school`, `days`, `tasks`, `vault` (şifre kasası ekranı), `business` (Business
@@ -68,7 +69,7 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     boşsa Diğer), color (CASE_COLORS, 14 renk; boşsa Siyah), cased (boolean, varsayılan true), note (≤ 1000),
     extra: [{label ≤ 40, value ≤ 200}] (boş satırlar atılır, en çok 20)}`. Yeni tür olduğu için VERSION
     2 kaldı; eski kayıtta `phones` yoksa boş liste. Telefonlarda örnek kayıt yok; yedeğe girer.
-  - account `{id, platform (PLATFORMS: Telegram / Bybit / OKX), label (zorunlu, ≤ 40; ör. "Bybit 3"), phoneId
+  - account `{id, platform (PLATFORMS: Telegram / Bybit / OKX), label (zorunlu, ≤ 40; ör. "Eren"), phoneId
     (bir telefonun id'si ya da ""), username (≤ 80; Telegram'da @kullanıcıadı, borsada e-posta), uid (≤ 40),
     status (ACCOUNT_STATUSES: Aktif / Doğrulanmamış / KYC tamam / Kısıtlı / Kapalı; boşsa Aktif), twofa
     (boolean: yalnızca 2FA açık mı, anahtar DEĞİL), note (≤ 1000), extra (telefonla aynı kurallar)}`.
@@ -204,17 +205,23 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     (platform başına bir rozet, birden çoksa sayı), sağda renk noktası + kısa model. Boşsa çizim +
     "Telefonlarını ekle".
   - Telefon ayrıntısı: büyük çizim, ad, model, düzenle kalemi; numara "Ara" (`tel:`) ve "Kopyala"; "SIM PIN
-    ••••"; model, kılıf rengi (kılıfsızsa "Renk"), not, Ek bilgiler; "Bu hatta" (bağlı hesaplar, dokununca
-    hesabın ayrıntısı) ve "Bu hatta hesap ekle" (Telegram / Bybit / OKX: platformu ve phoneId'si dolu form).
-  - Telegram / Bybit / OKX sekmeleri: satırda platform rozeti, etiket, kullanıcı adı/e-posta, sağda durum
-    etiketi (Aktif patina, KYC tamam yeşil, Kısıtlı turuncu, Kapalı soluk ve satır soluk, Doğrulanmamış nötr)
-    ve bağlı telefonun küçük çizimi + adı. Sıra bağlı telefonun doğal sırası, sonra etiket (`accountGroups`);
-    telefonu olmayanlar altta "Hat yok" grubunda. Boşsa rozet + "Telegram hesaplarını ekle" vb.
+    ••••"; model, kılıf rengi (kılıfsızsa "Renk"), not, Ek bilgiler; "Bu hatta" (bağlı hesapların etiketleri, ör.
+    "Eren"; dokununca hesabın ayrıntısı) ve "Bu hatta hesap ekle" (Telegram / Bybit / OKX: platformu ve phoneId'si dolu form).
+  - Telegram sekmesi: her satırda YALNIZCA iki şey: solda bağlı telefonun `phoneArt` çizimi (~44px, kendi
+    model/kılıf renginde), sağında etiket büyük ve kalın ("Eren"). İkinci satır yok: telefon adı, numara,
+    kullanıcı adı, durum ve platform rozeti satırda gösterilmez, yalnızca ayrıntıda. Telefonu yoksa çizim
+    yerine kesik çizgili boş siluet (`phoneSilhouette`). Sıra etikete göre alfabetik (`sortByLabel`,
+    localeCompare 'tr'); "Hat yok" grubu yok. Kapalı hesabın satırı soluk.
+  - Bybit / OKX sekmeleri: solda bağlı telefonun çizimi (yoksa siluet), yanında etiket (kalın), altında küçük
+    e-posta, sağda durum etiketi (Aktif patina, KYC tamam yeşil, Kısıtlı turuncu, Kapalı soluk ve satır soluk,
+    Doğrulanmamış nötr); platform rozeti satırda yok. Sıra bağlı telefonun doğal sırası, sonra etiket
+    (`accountGroups`); telefonu olmayanlar altta "Hat yok" grubunda.
+  - Boş sekmede rozet + "Telegram hesaplarını ekle" vb.
   - Hesap ayrıntısı: büyük rozet, etiket, platform, düzenle kalemi; kullanıcı adı / e-posta (Kopyala), UID /
     Telegram ID (Kopyala), durum, 2FA Açık/Kapalı, bağlı telefon (dokununca telefonun ayrıntısı), not, Ek
     bilgiler, "Şifresi Kasa'da" → #kasa.
-  - Hesap formu: platform (`pickGrid`, rozetli), etiket (boşsa öneri `nextLabel`: "Bybit 3"), telefon seçici
-    (iki sütun, çizimli; "Hat yok" dahil), kullanıcı adı (Telegram `@kullaniciadi`, borsada e-posta), UID,
+  - Hesap formu: platform (`pickGrid`, rozetli), etiket (zorunlu, "Örn. Eren"), telefon seçici
+    (iki sütun, çizimli; "Hat yok" siluetle), kullanıcı adı (Telegram `@kullaniciadi`, borsada e-posta), UID,
     durum çipleri, 2FA Açık/Kapalı, not, Ek bilgiler (öneri çipleri Kayıt tarihi, Referans kodu, Ülke).
     Silme formda, iki dokunuş + "Geri al".
   - **Kasa'ya gidecekler:** hesapta şifre, 2FA anahtarı, yedek kod, seed / kurtarma ifadesi, API anahtarı
@@ -321,7 +328,7 @@ harfiyen uyulur, gevşetilmez:
   örnek dosyayı yenilemek için `UPDATE_FIXTURES=1`), `node tests/phones.test.mjs` (numara temizleme ve
   biçimi, PIN'de baştaki 0, geçersiz numara/PIN, model/renk, ek bilgi sınırları, doğal sıra, yedek, çizim),
   `node tests/business.test.mjs` (numara/PIN, model/renk/platform/durum, gizli alanların atılması, ek bilgi
-  sınırları, doğal sıra ve "Hat yok", telefon silinince bağın kopması + Geri al, bilinmeyen phoneId, arama
+  sınırları, doğal sıra ve "Hat yok", Telegram'ın Türkçe alfabetik sırası, boş siluet, telefon silinince bağın kopması + Geri al, bilinmeyen phoneId, arama
   ve PIN'de aramama, yedek, ui.bizTab, "Bunu Kasa'ya koy" sözcükleri, Business özeti).
 - Izgara içindeki yatay kayan şeritler sayfayı genişletmesin: kapsayıcıya
   `grid-template-columns: minmax(0, 1fr)` ya da `min-width: 0` ver; 375px'te `scrollWidth` kontrol et.

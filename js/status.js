@@ -817,13 +817,9 @@ export function accountsOf(accounts, phoneId) {
     .sort((a, b) => rank[a.platform] - rank[b.platform] || phoneCollator.compare(a.label, b.label));
 }
 
-/** "Bybit 3" gibi bir sonraki etiket önerisi. */
-export function nextLabel(accounts, platform) {
-  const nums = accounts.filter((a) => a.platform === platform)
-    .map((a) => (fold(a.label).startsWith(fold(platform)) ? Number(a.label.slice(platform.length).trim()) : NaN))
-    .filter(Number.isInteger);
-  const count = accounts.filter((a) => a.platform === platform).length;
-  return `${platform} ${Math.max(count, ...nums, 0) + 1}`;
+/** Telegram sekmesi: etikete göre alfabetik (Türkçe sıra: "Çağrı" C'den sonra, "İrem" I'dan sonra). */
+export function sortByLabel(accounts) {
+  return [...accounts].sort((a, b) => a.label.localeCompare(b.label, 'tr') || a.id.localeCompare(b.id));
 }
 
 // Kasa'ya gitmesi gereken bilgiler: şifre, 2FA anahtarı, yedek kod, seed / kurtarma ifadesi, API anahtarı.
