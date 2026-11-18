@@ -14,6 +14,7 @@ import { today0, nowParts, isoDow, formatLong, GUNLER, AYLAR } from './dates.js'
 import { createWeatherFx } from './weather-fx.js';
 import { openSettings } from './settings.js';
 import { playCall } from './sound.js';
+import { openChat } from './assistant/chat.js';
 
 /* ---------- Geometri ---------- */
 
@@ -397,7 +398,7 @@ export function createFaceScreen(modules) {
   const slices = ORDER.map((id, index) => ({ id, href: byId[id].route, ...sliceLayer(byId[id], index, perRow) }));
   slices.forEach((sl) => ring.append(sl.layer));
   const { figure, tilt } = tamarinFigure();
-  const hit = h('button', { type: 'button', class: 'tamarin-hit', 'aria-label': 'Tamarine dokun' });
+  const hit = h('button', { type: 'button', class: 'tamarin-hit', 'aria-label': 'Tamarin ile konuş (uzun bas: ses)' });
   ring.append(figure, ringIcons(slices), hit);
   const ringWrap = h('nav', { class: 'ring-wrap', 'aria-label': 'Bölümler' }, ring);
   const message = h('p', { class: 'face-message', role: 'status' });
@@ -529,11 +530,26 @@ export function createFaceScreen(modules) {
     onLite: () => setCache('blocksLite', true),
   });
 
-  hit.addEventListener('click', () => {
+  // Tamarin: kısa dokunma sohbeti açar (js/assistant/chat.js); uzun basma eski tepki (ses + zıplama).
+  const LONG_MS = 480;
+  let pressTimer = 0;
+  let longFired = false;
+  const react = () => {
     playCall(status.mood);
     figure.classList.remove('is-hop');
     void figure.offsetWidth;
     figure.classList.add('is-hop');
+  };
+  hit.addEventListener('pointerdown', () => {
+    longFired = false;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => { longFired = true; react(); }, LONG_MS);
+  });
+  for (const type of ['pointerup', 'pointercancel', 'pointerleave']) hit.addEventListener(type, () => clearTimeout(pressTimer));
+  hit.addEventListener('contextmenu', (event) => event.preventDefault());
+  hit.addEventListener('click', () => {
+    if (longFired) { longFired = false; return; }
+    openChat();
   });
 
   async function loadWeather(force = false) {

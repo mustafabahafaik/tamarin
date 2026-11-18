@@ -280,6 +280,17 @@ export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
 
+/** Her türün şemadaki alanları (asistanın update_record'u yalnızca bunları değiştirebilir). */
+export const FIELD_NAMES = Object.freeze({
+  bills: ['name', 'cat', 'amount', 'day', 'note', 'paid'],
+  classes: ['name', 'day', 'start', 'end', 'room', 'teacher'],
+  exams: ['course', 'type', 'date', 'time', 'room', 'note'],
+  days: ['name', 'kind', 'day', 'month', 'year', 'rel', 'note'],
+  tasks: ['title', 'date', 'time', 'remind', 'prio', 'note', 'done', 'doneAt'],
+  phones: ['name', 'number', 'pin', 'model', 'color', 'cased', 'note', 'extra'],
+  accounts: ['platform', 'label', 'phoneId', 'username', 'uid', 'status', 'twofa', 'note', 'extra'],
+});
+
 /** Tek kaydı şemaya göre temizler; uymuyorsa SchemaError fırlatır. */
 function normalize(type, raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('kayıt bir nesne olmalı');
@@ -515,6 +526,18 @@ export function add(type, item) {
 function linked(type, clean) {
   if (type !== 'accounts' || !clean.phoneId || state.phones.some((p) => p.id === clean.phoneId)) return clean;
   return { ...clean, phoneId: '' };
+}
+
+/**
+ * Kaydetmeden doğrular: add (id yoksa) ya da update (id varsa, patch birleştirilir) sonrası kaydın temiz hali.
+ * Şemaya uymuyorsa hata fırlatır; state'e dokunmaz, olay yayınlamaz.
+ */
+export function preview(type, item, id = null) {
+  assertType(type);
+  if (id == null) return linked(type, normalize(type, { ...item, id: undefined }));
+  const current = state[type].find((x) => x.id === id);
+  if (!current) throw new Error(`${type} içinde ${id} yok`);
+  return linked(type, normalize(type, { ...current, ...item, id }));
 }
 
 /** Kaydı günceller (patch birleştirilir). Güncellenmiş kaydı döndürür. */

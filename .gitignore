@@ -31,3 +31,8 @@ $RECYCLE.BIN/
 
 # Claude Code yerel ayarları (launch.json paylaşılır)
 .claude/settings.local.json
+
+# Cloudflare Worker (worker/): yerel sırlar ve wrangler önbelleği
+worker/.dev.vars
+.wrangler/
+worker/.wrangler/

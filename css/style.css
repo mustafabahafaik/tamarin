@@ -2639,3 +2639,83 @@ button { cursor: pointer; }
 /* Hesap formu: Bybit'te yalnızca etiket + telefon; diğer alanlar bu kapta gizlenir. */
 .a-more { display: grid; gap: inherit; }
 .a-more[hidden], .form > .field[hidden] { display: none; }
+
+/* ---------- Asistan sohbeti (js/assistant/chat.js) ---------- */
+/* Yüksek sheet: mesajlar kayar, yazı kutusu altta sabit. */
+.sheet:has(.chat) { height: calc(100% - var(--kb, 0px) - env(safe-area-inset-top) - 24px); }
+.sheet-body:has(.chat) { flex: 1; display: flex; min-height: 0; overflow: hidden; padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
+
+.chat { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+.chat-head { flex: none; display: flex; align-items: center; gap: 12px; }
+.chat-sub { margin: 0; font-size: 13px; color: var(--text-3); }
+
+/* Küçük tamarin: düşünürken yavaş nefes, konuşurken hafif kafa hareketi (transform). */
+.chat-face { flex: none; width: 56px; height: 56px; border-radius: 50%; overflow: hidden; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border); }
+.chat-face img { display: block; width: 146%; height: 146%; margin: -21% 0 0 -23%; transform-origin: 50% 70%; }
+.chat-face.is-thinking img { animation: chat-think 2.6s ease-in-out infinite; }
+.chat-face.is-talking img { animation: chat-talk 0.46s ease-in-out infinite; }
+
+@keyframes chat-think {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@keyframes chat-talk {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  30% { transform: rotate(-2.2deg) translateY(-1px); }
+  70% { transform: rotate(1.6deg) translateY(0.5px); }
+}
+
+.chat-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+
+.chat-msg { max-width: 86%; padding: 9px 13px; border-radius: 16px; font-size: 15px; line-height: 1.4; animation: chat-in 0.22s ease-out both; }
+.chat-msg.is-me { align-self: flex-end; background: color-mix(in srgb, var(--accent) 30%, var(--surface-2)); border-bottom-right-radius: 6px; }
+.chat-msg.is-tam { align-self: flex-start; background: var(--surface-2); border-bottom-left-radius: 6px; }
+.chat-msg.is-error { color: var(--text-2); background: rgba(242, 234, 223, 0.04); box-shadow: inset 0 0 0 1px var(--border); }
+.chat-msg.is-card { max-width: 100%; width: 100%; padding: 0; background: none; }
+.chat-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-text:empty { display: none; }
+.chat-act { margin-top: 8px; min-height: 38px; font-size: 14px; }
+
+@keyframes chat-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Onay kartı: somut Türkçe özet, Onayla / Vazgeç; silmede kırmızı ve iki dokunuş. */
+.chat-card { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--accent) 8%, var(--surface-2)); }
+.chat-card.is-danger { border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--surface-2)); }
+.chat-card-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.chat-card-list li { display: grid; gap: 2px; }
+.chat-card-title { font-size: 13px; font-weight: 600; color: var(--text-2); }
+.chat-card-line { font-size: 15px; overflow-wrap: anywhere; }
+.chat-card-list li.is-bad .chat-card-title { color: #e8917f; }
+.chat-card-list li.is-bad .chat-card-line { color: var(--text-2); }
+.chat-card-note { margin: 0; font-size: 13px; color: var(--text-2); }
+.chat-card-note:empty { display: none; }
+.chat-card .actions { margin: 0; }
+
+.chat-chips { flex: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.chat-chips[hidden] { display: none; }
+.chat-thinking { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; color: var(--text-2); }
+.chat-thinking[hidden] { display: none; }
+.chat-thinking span { animation: chat-pulse 1.6s ease-in-out infinite; }
+
+@keyframes chat-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+.chat-form { flex: none; display: flex; align-items: center; gap: 6px; }
+.chat-input { flex: 1; min-width: 0; }
+.chat-icon-btn { flex: none; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface-2); color: var(--text-2); }
+.chat-icon-btn svg { width: 21px; height: 21px; }
+.chat-icon-btn.is-on { color: var(--on-accent); background: var(--accent); border-color: transparent; }
+.chat-send { color: var(--on-accent); background: var(--accent); border-color: transparent; }
+.chat-send:disabled { opacity: 0.5; }
+
+.asst-result:empty { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-face img, .chat-thinking span { animation: none !important; }
+}

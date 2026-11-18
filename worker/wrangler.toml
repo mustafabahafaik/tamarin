@@ -1,0 +1,15 @@
+# Tamarin asistanı — Cloudflare Workers Free planı. Uygulama bu klasörü yüklemez.
+# Sırlar burada DEĞİL: `npx wrangler secret put GEMINI_API_KEY` ve `npx wrangler secret put TAMARIN_TOKEN`.
+name = "tamarin-asistan"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+# Dakika / gün sayaçları (yalnızca sayı; içerik yok). id gizli değildir:
+# `npx wrangler kv namespace create RATE` çıktısındaki id buraya yazılır.
+[[kv_namespaces]]
+binding = "RATE"
+id = "KV_ID_BURAYA"
+
+[observability]
+enabled = false

@@ -1,7 +1,7 @@
 // Ayarlar ekranı: sol üstteki kullanıcıya dokununca alttan açılır.
-// İsim, dönem sonu, ses, takvime aktarma, yedek al/yükle, örnekleri sil, tüm verileri sil.
+// İsim, dönem sonu, ses, asistan, takvime aktarma, yedek al/yükle, örnekleri sil, tüm verileri sil.
 // Silme işlemleri iki dokunuşla onaylanır (confirmTap) ve toast'tan geri alınabilir.
-import { h, openSheet, toast, confirmTap, saveFile } from './ui.js';
+import { h, svg, openSheet, toast, confirmTap, saveFile } from './ui.js';
 import {
   TYPES, getState, setField, onChange, exportData, validateBackup, importBackup,
   countExamples, removeExamples, resetAll, snapshot, restore,
@@ -10,6 +10,7 @@ import { ymd, AYLAR } from './dates.js';
 import { exportToCalendar, pendingCount, METHOD_LABELS } from './ics.js';
 import { playCall } from './sound.js';
 import { searchCities, PREVIEWS, getPreview, setPreview } from './weather.js';
+import { loadConfig, saveConfig, callWorker, ERROR_TEXT } from './assistant/config.js';
 
 const LABELS = { bills: 'fatura', classes: 'ders', exams: 'sınav', days: 'özel gün', tasks: 'görev', phones: 'telefon', accounts: 'hesap' };
 const MAX_BACKUP = 2 * 1024 * 1024;
@@ -42,7 +43,70 @@ const textBlock = (name, hint, id) => h('span', { class: 'set-text' },
   h('span', { class: 'setting-name', id }, name),
   hint && h('span', { class: 'hint' }, hint));
 
-export function openSettings() {
+/**
+ * Asistan grubu: Worker adresi, erişim kodu (gizli + göz), "Cevapları sesli oku", "Bağlantıyı dene".
+ * Değerler ana store'a değil "tamarin.assistant"a yazılır (yedeğe girmez). Erişim kodu ekranda gizli.
+ */
+function assistantGroup() {
+  const cfg = loadConfig();
+  const plain = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' };
+  const url = h('input', { class: 'input', type: 'url', id: 'set-asst-url', inputmode: 'url', placeholder: 'https://tamarin-asistan.….workers.dev', ...plain });
+  const token = h('input', { class: 'input v-secret', type: 'password', id: 'set-asst-token', ...plain });
+  url.value = cfg.url;
+  token.value = cfg.token;
+  url.addEventListener('change', () => saveConfig({ url: url.value.trim() }));
+  token.addEventListener('change', () => saveConfig({ token: token.value.trim() }));
+  const eyeIcon = (open) => svg(`<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${open
+    ? '<path d="M3 3l18 18"/><path d="M10.6 5.6A9.7 9.7 0 0 1 12 5.5C18 5.5 21.5 12 21.5 12a16 16 0 0 1-3.1 3.9M6.6 6.6C3.9 8.4 2.5 12 2.5 12S6 18.5 12 18.5c1.6 0 3-.4 4.2-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'
+    : '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>'}</svg>`);
+  const eye = h('button', { type: 'button', class: 'v-eye', 'aria-label': 'Erişim kodunu göster', 'aria-pressed': 'false' }, eyeIcon(false));
+  eye.addEventListener('click', () => {
+    const show = token.type === 'password';
+    token.type = show ? 'text' : 'password';
+    eye.setAttribute('aria-pressed', String(show));
+    eye.setAttribute('aria-label', show ? 'Erişim kodunu gizle' : 'Erişim kodunu göster');
+    eye.replaceChildren(eyeIcon(show));
+  });
+
+  const speak = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-labelledby': 'set-asst-speak', 'aria-checked': String(cfg.speak) });
+  speak.addEventListener('click', () => {
+    const on = speak.getAttribute('aria-checked') !== 'true';
+    saveConfig({ speak: on });
+    speak.setAttribute('aria-checked', String(on));
+    if (!on) globalThis.speechSynthesis?.cancel();
+  });
+
+  const result = h('p', { class: 'hint asst-result', role: 'status' });
+  const test = h('button', { type: 'button', class: 'btn btn-secondary btn-block' }, 'Bağlantıyı dene');
+  test.addEventListener('click', async () => {
+    const next = saveConfig({ url: url.value.trim(), token: token.value.trim() });
+    test.disabled = true;
+    result.textContent = 'Deneniyor…';
+    try {
+      const data = await callWorker('/ping', {}, { config: next });
+      result.textContent = `Bağlandı · ${data.model ?? 'Gemini'}`;
+    } catch (err) {
+      result.textContent = ERROR_TEXT[err.code] ?? ERROR_TEXT.server;
+    } finally {
+      test.disabled = false;
+    }
+  });
+
+  return group('Asistan',
+    h('div', { class: 'set-row is-stacked', id: 'set-assistant' },
+      h('label', { class: 'set-text', for: 'set-asst-url' }, h('span', { class: 'setting-name' }, 'Worker adresi'),
+        h('span', { class: 'hint' }, 'Cloudflare Worker\'ın adresi (README > Asistan).')),
+      url),
+    h('div', { class: 'set-row is-stacked' },
+      h('label', { class: 'set-text', for: 'set-asst-token' }, h('span', { class: 'setting-name' }, 'Erişim kodu'),
+        h('span', { class: 'hint' }, 'Yalnızca bu cihazda saklanır; yedeğe girmez.')),
+      h('span', { class: 'v-secret-wrap' }, token, eye)),
+    h('div', { class: 'set-row' }, textBlock('Cevapları sesli oku', 'Tamarin cevabını Türkçe sesle okur.', 'set-asst-speak'), speak),
+    h('div', { class: 'set-row is-stacked' }, test, result,
+      h('p', { class: 'hint' }, 'Ücretsiz katmanda Gemini\'ye giden veriler Google ürünlerini geliştirmek için kullanılabilir; PIN ve Kasa hiç gönderilmez.')));
+}
+
+export function openSettings({ focus } = {}) {
   const state = getState();
 
   /* İsim */
@@ -222,6 +286,7 @@ export function openSettings() {
       h('div', { class: 'set-row is-stacked' },
         textBlock('Efekt', 'Geçici: arka plan ve tamarinin mesajı seçilen havaya göre değişir. Uygulama yeniden açılınca Gerçek\'e döner.'),
         chips)),
+    assistantGroup(),
     group('Ses',
       h('div', { class: 'set-row' }, textBlock('Sesler', 'Tamarine dokununca ses çıkarır. iPhone sessizdeyse duyulmaz.', 'set-sound'), toggle),
       h('div', { class: 'set-row is-stacked' }, textBlock('Ses seviyesi', null, 'set-volume'), volume)),
@@ -249,4 +314,9 @@ export function openSettings() {
   sync();
   const stop = onChange(sync);
   openSheet({ title: 'Ayarlar', body, onClose: stop });
+  if (focus === 'assistant') {
+    const row = body.querySelector('#set-assistant');
+    row?.scrollIntoView({ block: 'start' });
+    (loadConfig().url ? body.querySelector('#set-asst-token') : body.querySelector('#set-asst-url'))?.focus({ preventScroll: true });
+  }
 }

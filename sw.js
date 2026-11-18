@@ -3,7 +3,7 @@
 // ağ yoksa önbellekteki kopya verilir. Yeni bir uygulama dosyası eklenince
 // SHELL listesine ekle ve CACHE sürümünü artır.
 
-const CACHE = 'tamarin-v20';
+const CACHE = 'tamarin-v21';
 
 const SHELL = [
   './',
@@ -21,6 +21,11 @@ const SHELL = [
   './js/settings.js',
   './js/weather-fx.js',
   './js/ring-blocks.js',
+  './js/assistant/declarations.js',
+  './js/assistant/config.js',
+  './js/assistant/context.js',
+  './js/assistant/tools.js',
+  './js/assistant/chat.js',
   './js/vault.js',
   './js/form.js',
   './js/phone-art.js',
@@ -61,8 +66,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  // Asistan (Cloudflare Worker) istekleri POST ve başka adrese gider: önbelleğe hiç girmez.
   if (request.method !== 'GET') return;
-  // Başka sitelere giden istekler (ör. Open-Meteo) service worker'a uğramadan ağa gider.
+  // Başka sitelere giden istekler (ör. Open-Meteo, Worker) service worker'a uğramadan ağa gider.
   if (new URL(request.url).origin !== self.location.origin) return;
   event.respondWith(networkFirst(event));
 });

@@ -29,6 +29,8 @@ web uygulaması (PWA). Ödemeleri, ders programını, sınavları, doğum günle
   olduğu, hesapta hangi telefona bağlı olduğu görünür. Telegram ve Bybit listelerinde her hesap yalnızca adıyla ve bağlı telefonun çizimiyle durur; OKX listesinde e-posta ve durum da görünür. Ad, numara, kullanıcı adı ve UID'de arama. Telefonlar
   modeline ve kılıf rengine göre çizilir. PIN listede görünmez, istenince kısa süre gösterilir ve kopyalanınca
   panodan silinir. Hesap şifreleri, 2FA anahtarları ve kurtarma ifadeleri burada tutulmaz; Kasa'ya konur.
+- **Asistan:** ortadaki tamarine dokununca açılır; kayıtlarına bakıp Türkçe cevaplar ("Bu ay ne kadar ödemem
+  kaldı?") ve senin onayınla kayıt ekler/değiştirir. Ücretsiz Gemini + Cloudflare ile çalışır (aşağıda).
 - **Takvime aktarma:** kayıtları iPhone Takvimi'ne `.ics` olarak gönderir; hatırlatmaları Takvim verir.
 - **Yedek:** tüm kayıtlar tek bir JSON dosyasına alınır ve geri yüklenir.
 
@@ -67,13 +69,38 @@ değişmiş kayıtları gönderir.
 - **SIM PIN'leri ve hesap bilgileri** (Business) kasa gibi şifrelenmez: diğer kayıtlarla birlikte cihazın yerel deposunda
   durur ve yedek dosyasına girer. Yedek dosyasını güvenli bir yerde sakla.
 
+## Asistan
+
+Tamarin'in asistanı Google Gemini API'nin **ücretsiz** katmanını kullanır; araya ücretsiz bir Cloudflare Worker
+girer (anahtar telefonda değil, Worker'da durur). Ücretli hiçbir servis gerekmez.
+
+1. **Gemini anahtarı:** https://aistudio.google.com/apikey adresinden ücretsiz bir API anahtarı al (kart gerekmez).
+2. **Cloudflare:** ücretsiz bir Cloudflare hesabı aç. Sonra `worker/` klasöründe:
+
+   ```bash
+   cd worker
+   npm install
+   npx wrangler login
+   npx wrangler kv namespace create RATE        # çıkan id'yi wrangler.toml'daki id'ye yaz
+   npx wrangler secret put GEMINI_API_KEY       # 1. adımdaki anahtarı yapıştır
+   node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"   # erişim kodu üret
+   npx wrangler secret put TAMARIN_TOKEN        # üretilen erişim kodunu yapıştır
+   npx wrangler deploy                          # çıkan https://….workers.dev adresi Worker adresidir
+   ```
+
+3. **iPhone:** Tamarin > Ayarlar > **Asistan**: Worker adresini ve erişim kodunu yaz, **Bağlantıyı dene**.
+
+Sınırlar: dakikada 10, günde 150 soru (Worker'da). Erişim kodu yalnızca telefonda saklanır, yedeğe girmez.
+
+Ücretsiz katmanda Gemini'ye giden veriler Google ürünlerini geliştirmek için kullanılabilir; PIN ve Kasa hiç gönderilmez.
+
 ## Geliştirme
 
 Framework ve derleme adımı yok: saf HTML, CSS ve JavaScript modülleri.
 
 ```bash
 node tools/serve.mjs          # http://localhost:5190/tamarin/  (telefondan bakmak için --lan)
-node tests/vault.test.mjs     # diğerleri: bills, school, days, tasks, ics, phones, business, ring-blocks
+node tests/vault.test.mjs     # diğerleri: bills, school, days, tasks, ics, phones, business, ring-blocks, assistant, worker
 ```
 
 ## Görseller

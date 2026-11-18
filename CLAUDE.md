@@ -39,7 +39,11 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - `js/biz-ui.js` — Business'ın ortak parçaları: çizgi ikonlar, pano (30 sn sonra silinir), açık PIN'leri
     gizleme, Ek bilgiler düzenleyicisi, platform rozeti (`badge`), "Bunu Kasa'ya koy" uyarısı (`vaultGuard`)
   - `js/vault.js` — kasa çekirdeği: Web Crypto ile şifreleme, kilit, otomatik kilit, şifre üretici
-  - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`, `phones`, `business`, `ring-blocks`: `node tests/<ad>.test.mjs`);
+  - `js/assistant/` — yapay zekâ asistanı: `declarations.js` (sistem talimatı + araç tanımları; Worker da kullanır),
+    `context.js` (bağlam özeti + hassas filtre), `tools.js` (araç çağrısı → onay → store), `config.js` (ayarlar,
+    Worker istemcisi, hata metinleri), `chat.js` (sohbet sheet'i)
+  - `worker/` — Cloudflare Worker (kendi `package.json` + `wrangler.toml`; uygulama yüklemez, sw.js SHELL'e girmez)
+  - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`, `phones`, `business`, `ring-blocks`, `assistant`, `worker`: `node tests/<ad>.test.mjs`);
     `tests/fixtures/ornek.ics` örnek takvim (`.gitattributes`: `-text`, CRLF bayt bayt korunur)
   - `manifest.webmanifest`, `sw.js`, `icons/`
   - `README.md`, `docs/ekran-goruntusu.webp` (README görseli), `.nojekyll` (Pages dosyaları işlemesin)
@@ -337,6 +341,55 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - Test: `node tests/ring-blocks.test.mjs` (blok sayısı, yay sınırları, derz, aynı tohum → aynı ton, malzeme).
 - **Tarihler:** Yerel saat (Europe/Istanbul), Türkçe gün/ay adları.
 
+## Asistan (js/assistant/, worker/)
+
+Ortadaki tamarin, uygulamadaki verilere bakarak Türkçe soru cevaplar ve onayla kayıt ekler/değiştirir.
+Beyin Google Gemini API ücretsiz katmanı; ücretli hiçbir servis/plan yok.
+
+- **Mimari:** tarayıcı Gemini'ye doğrudan bağlanmaz. Araya Cloudflare Worker girer (Workers Free, `worker/`):
+  - `POST /chat {messages, context}` → Gemini `generateContent` → `{ text, toolCalls: [{id, name, args}], content }`.
+    `content` modelin turu; istemci onu (thoughtSignature dahil) AYNEN geçmişe koyar ve geri gönderir.
+    `POST /ping`: yalnızca erişim kodunu doğrular, Gemini'yi çağırmaz ("Bağlantıyı dene").
+  - Model tek sabitte: `MODEL` (worker/src/index.js), `gemini-3.8-flash` (Gemini docs'ta "Stable" en yeni Flash;
+    Pro değil). Değiştirirken docs'tan doğrula. `thinkingLevel: LOW`, `maxOutputTokens: 600`, araç modu AUTO.
+  - Sırlar yalnızca `wrangler secret`: `GEMINI_API_KEY`, `TAMARIN_TOKEN`. Anahtar Gemini'ye `x-goog-api-key`
+    başlığıyla gider (URL'de değil). `Authorization: Bearer <TAMARIN_TOKEN>` yoksa/yanlışsa 401 (sabit süreli karşılaştırma).
+  - CORS yalnızca `https://mustafabahafaik.github.io` ve `http://localhost:5190`; başka Origin 403.
+  - Sınır KV'de (`RATE`): dakikada 10, günde 150 istek (İstanbul günü) → 429 `rate` / `day`. Gövde ≤ 48 KB (413).
+    Gemini 429 / RESOURCE_EXHAUSTED → 429 `{ error: "quota" }`.
+  - Worker hiçbir içeriği loglamaz/saklamaz: `console.*` yok, observability kapalı, KV'de yalnızca sayaçlar.
+- **Bağlam (`context.js`):** her soruda store'dan beyaz listeyle seçilmiş JSON özet: simdi (tarih, gün, saat),
+  kullanici, hava, odemeler (id, ad, kat, tutar, gun, bu_ay_odendi, sonraki_vade, gecikme_gun), dersler, sinavlar
+  (gelecek + son 14 gün), ozel_gunler (sonraki gerçekleşme, kalan gün, yaş), isler (açıklar + son 3 günde
+  tamamlananlar), telefonlar (id, ad, numara, model, renk), hesaplar (id, platform, etiket, telefon adı).
+  - **ASLA gönderilmez:** `phones.pin`, Kasa (`tamarin.vault`), `calendar`, `cache`, `extra`, hesapların kullanıcı
+    adı/UID'si; notlarda "pin", "şifre", "parola", "password", "seed", "2fa", "puk", "kurtarma"… geçen satırlar.
+    Filtre tek yerde: `isSensitive` / `safeNote` (tests/assistant.test.mjs).
+  - En fazla 8 KB (`MAX_BYTES`); aşarsa sırayla tamamlanan görevler, geçmiş sınavlar, notlar, sonra liste sonları kırpılır.
+- **Sistem talimatı ve araçlar (`declarations.js`):** Tamarin kimliği, Türkçe/kısa, veride olmayanı uydurma, açık
+  tarih/tutar, PIN/şifre/Kasa sorulursa göremediğini söyle, emoji yok. Araçlar: add_task, complete_task,
+  postpone_task, add_bill, mark_bill_paid, add_exam, add_day, add_class, update_record (yalnızca `FIELD_NAMES`;
+  phones.pin, accounts.platform, extra, paid, doneAt değiştirilemez), delete_record.
+- **Onay (`tools.js`):** model araç çağırınca hiçbir şey yazılmaz. `planCall` argümanları araç tanımına göre denetler
+  (bilinmeyen/eksik alan, bilinmeyen id/tür reddedilir), `store.preview` ile kaydetmeden dener, somut Türkçe özet
+  üretir ("Ajanda'ya ekle: Dişçi · 21 Kasım Cumartesi 15:00 · 1 saat önce hatırlat"). Kart: "Onayla" / "Vazgeç";
+  birden çok çağrıda tek kart + "Hepsini onayla". Silme (ya da silme içeren kart) kırmızı ve iki dokunuş
+  (`createApproval`: ilk onay "armed"). Onaylanınca store API'siyle uygulanır, toast'ta "Geri al"; şema hatası
+  kullanıcıya gösterilir ve modele hata olarak döner. Sonuç modele function response (aynı id, aynı sıra).
+- **Arayüz (`chat.js`):** yüzde tamarine KISA dokunma sohbeti açar, UZUN basma (480 ms) eski ses + zıplama.
+  Yüksek sheet: küçük tamarin (düşünürken nefes, konuşurken kafa hareketi; transform), balonlar (Baha sağda),
+  yazı kutusu + Gönder; `webkitSpeechRecognition` varsa mikrofon (tr-TR). Boşken öneri çipleri. "Tamarin
+  düşünüyor…" + İptal (AbortController), 20 sn zaman aşımı. Geçmiş yalnızca bellekte; sheet kapanınca 10 dk
+  tutulur, sonra silinir; modele en çok son 10 mesaj (kesim bir kullanıcı yazısıyla başlar). Hata metinleri
+  `ERROR_TEXT` (config.js): internet yok, erişim kodu yanlış, dakika sınırı, kota dolu, Worker adresi boş (+ Ayarlar butonu).
+- **Ayarlar > Asistan:** Worker adresi, Erişim kodu (gizli + göz), "Cevapları sesli oku" (speechSynthesis tr-TR,
+  yeni mesajda önceki okuma durur), "Bağlantıyı dene". localStorage `"tamarin.assistant"` (ana store'dan ayrı);
+  ana yedeğe GİRMEZ, "Tüm verileri sil" dokunmaz.
+- **Depo herkese açık:** API anahtarı, erişim kodu ve gerçek veri commit'lenmez. `worker/.dev.vars`, `.wrangler/`
+  .gitignore'da. `wrangler.toml`'daki KV id gizli değildir.
+- **Service worker:** Worker istekleri POST ve başka adrese gider; önbelleğe hiç girmez.
+- Test: `node tests/assistant.test.mjs`, `node tests/worker.test.mjs`.
+
 ## Kasa güvenlik kuralları
 
 Uygulama şifreleri kasası (`#kasa`, js/vault.js + js/modules/vault.js) hassastır; aşağıdakilere
@@ -385,7 +438,9 @@ harfiyen uyulur, gevşetilmez:
   `node tests/business.test.mjs` (numara/PIN, model/renk/platform/durum, gizli alanların atılması, ek bilgi
   sınırları, doğal sıra ve "Hat yok", Telegram'ın Türkçe alfabetik sırası, boş siluet, telefon silinince bağın kopması + Geri al, bilinmeyen phoneId, arama
   ve PIN'de aramama, yedek, ui.bizTab, "Bunu Kasa'ya koy" sözcükleri, Bybit sade kayıt ve eski alanların korunması, sürüm bazlı tohum, Business özeti),
-  `node tests/ring-blocks.test.mjs` (blok sayısı, yay sınırları, derz, tohumlu tonlar, malzeme kuralları).
+  `node tests/ring-blocks.test.mjs` (blok sayısı, yay sınırları, derz, tohumlu tonlar, malzeme kuralları),
+  `node tests/assistant.test.mjs` (bağlamda PIN ve hassas satır yok, 8 KB kırpma, araç → kayıt, şema dışı ret,
+  onaysız değişiklik yok, silmenin iki adımı), `node tests/worker.test.mjs` (fetch/KV taklit: 401, CORS, quota, sınırlar).
 - Izgara içindeki yatay kayan şeritler sayfayı genişletmesin: kapsayıcıya
   `grid-template-columns: minmax(0, 1fr)` ya da `min-width: 0` ver; 375px'te `scrollWidth` kontrol et.
 - Yayın: GitHub Pages, `main` dalının kökü → https://mustafabahafaik.github.io/tamarin/. Depo herkese açık:
