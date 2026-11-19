@@ -126,26 +126,58 @@ async function callGemini(env, contents, context) {
     generationConfig: { maxOutputTokens: LIMITS.outputTokens, thinkingConfig: { thinkingLevel: 'LOW' } },
   });
   const deadline = Date.now() + LIMITS.upstreamMs;
+  const attempts = []; // [{ model, status | 'süre', ms }] — teşhis için (içerik yok)
   let last = null;
   let lastErr = null;
   for (const model of MODELS) {
     const left = deadline - Date.now();
     if (left < 1500) break;
+    const started = Date.now();
+    try {
+      // Tek model tüm süreyi yemesin: denemeye en çok 9 sn (sıradakilere de şans kalsın).
+      const res = await fetch(geminiUrl(model), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+        body,
+        signal: AbortSignal.timeout(Math.min(left, 9000)),
+      });
+      attempts.push({ model, status: res.status, ms: Date.now() - started });
+      last = { res, model, attempts };
+      if (!RETRYABLE.has(res.status)) return last;
+    } catch (err) {
+      attempts.push({ model, status: err?.name === 'TimeoutError' ? 'süre' : 'ağ', ms: Date.now() - started });
+      lastErr = err;
+    }
+  }
+  if (last) return last;
+  const err = lastErr ?? new Error('upstream');
+  err.attempts = attempts;
+  throw err;
+}
+
+/** "3.8-flash 503 (1.2 sn) · 3.6-flash süre (9.0 sn)" */
+export const attemptText = (attempts = []) => attempts
+  .map((a) => `${a.model.replace(/^gemini-/, '')} ${a.status} (${(a.ms / 1000).toFixed(1)} sn)`).join(' · ');
+
+/** Bağlantıyı dene (derin): her modele küçücük bir istek; durum kodları (araç yok, veri yok). */
+async function probeModels(env) {
+  const body = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'merhaba' }] }], generationConfig: { maxOutputTokens: 16 } });
+  return Promise.all(MODELS.map(async (model) => {
+    const started = Date.now();
     try {
       const res = await fetch(geminiUrl(model), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
         body,
-        signal: AbortSignal.timeout(left),
+        signal: AbortSignal.timeout(9000),
       });
-      last = { res, model };
-      if (!RETRYABLE.has(res.status)) return last;
+      let status = '';
+      if (!res.ok) { try { status = (await res.json())?.error?.status ?? ''; } catch { /* gövde yok */ } }
+      return { model, status: res.status, note: status, ms: Date.now() - started };
     } catch (err) {
-      lastErr = err;
+      return { model, status: err?.name === 'TimeoutError' ? 'süre' : 'ağ', note: '', ms: Date.now() - started };
     }
-  }
-  if (last) return last;
-  throw lastErr ?? new Error('upstream');
+  }));
 }
 
 /** Gemini yanıtını istemcinin anlayacağı sade biçime çevirir. */
@@ -188,7 +220,13 @@ export default {
     const auth = request.headers.get('Authorization') ?? '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : (typeof body?.token === 'string' ? body.token : '');
     if (!sameToken(token, env.TAMARIN_TOKEN)) return json({ error: 'auth' }, 401, origin);
-    if (url.pathname === '/ping') return json({ ok: true, model: MODEL }, 200, origin);
+    if (url.pathname === '/ping') {
+      if (body?.deep !== true) return json({ ok: true, model: MODEL }, 200, origin);
+      // Derin deneme: her Flash modeline küçük bir istek (Gemini kotası harcar, sınıra sayılır).
+      const limitedPing = await checkLimit(env.RATE);
+      if (limitedPing) return json({ error: limitedPing }, 429, origin);
+      return json({ ok: true, model: MODEL, models: await probeModels(env) }, 200, origin);
+    }
     if (!body) return json({ error: 'bad_request' }, 400, origin);
     const contents = cleanMessages(body?.messages);
     const context = typeof body?.context === 'string' ? body.context.slice(0, 12000) : '{}';
@@ -199,17 +237,18 @@ export default {
 
     let upstream;
     let model;
+    let attempts = [];
     try {
-      ({ res: upstream, model } = await callGemini(env, contents, context));
+      ({ res: upstream, model, attempts } = await callGemini(env, contents, context));
     } catch (err) {
-      return json({ error: err?.name === 'TimeoutError' ? 'timeout' : 'upstream' }, 504, origin);
+      return json({ error: err?.name === 'TimeoutError' ? 'timeout' : 'upstream', detail: attemptText(err.attempts) }, 504, origin);
     }
     if (!upstream.ok) {
       let err = {};
       try { err = (await upstream.json())?.error ?? {}; } catch { /* gövde yok */ }
       if (upstream.status === 429 || err.status === 'RESOURCE_EXHAUSTED') return json({ error: 'quota' }, 429, origin);
       // Tüm Flash modelleri yoğun (503): sakin bir "meşgul" cevabı.
-      if (RETRYABLE.has(upstream.status)) return json({ error: 'busy', status: upstream.status }, 503, origin);
+      if (RETRYABLE.has(upstream.status)) return json({ error: 'busy', status: upstream.status, detail: attemptText(attempts) }, 503, origin);
       // Gemini'nin hata açıklaması (şema/model/konum sorunu gibi; kullanıcı verisi ya da anahtar içermez), kısaltılmış.
       const detail = `${upstream.status} ${err.status ?? ''} ${String(err.message ?? '').slice(0, 240)}`.trim();
       return json({ error: 'gemini', status: upstream.status, detail }, 502, origin);

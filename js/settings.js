@@ -88,8 +88,14 @@ function assistantGroup() {
     // sağlık da düşüyorsa cihazdaki bir engelleyici (içerik engelleyici, DNS/VPN profili) Worker'ı kesiyordur.
     const health = await checkHealth(next);
     try {
-      const data = await callWorker('/ping', {}, { config: next });
-      result.textContent = `Bağlandı · ${data.model ?? 'Gemini'}`;
+      // Derin deneme: Worker her Flash modeline küçük bir istek atar; hangisinin cevap verdiği görünür.
+      const data = await callWorker('/ping', { deep: true }, { config: next });
+      const models = Array.isArray(data.models) ? data.models : [];
+      const okOnes = models.filter((m) => m.status === 200).length;
+      const list = models.map((m) => `${String(m.model).replace(/^gemini-/, '')}: ${m.status === 200 ? 'hazır' : `${m.status}${m.note ? ` ${m.note}` : ''}`}`).join(' · ');
+      result.textContent = models.length
+        ? `${okOnes ? 'Bağlandı' : 'Bağlandı, ama modeller şu an cevap vermiyor'} · ${list}`
+        : `Bağlandı · ${data.model ?? 'Gemini'}`;
     } catch (err) {
       result.textContent = `${ERROR_TEXT[err.code] ?? ERROR_TEXT.server} (${health.detail}${err.detail ? ` · ${err.detail}` : ''})`;
     } finally {

@@ -133,8 +133,15 @@ await test('yoğunluk: 503 gelince sıradaki Flash modeline geçer; hepsi 503 is
   mockGemini(503, { error: { code: 503, status: 'UNAVAILABLE' } });
   const busy = await worker.fetch(req('/chat'), env());
   assert.equal(busy.status, 503);
-  assert.equal((await busy.json()).error, 'busy');
+  const busyBody = await busy.json();
+  assert.equal(busyBody.error, 'busy');
+  assert.match(busyBody.detail, /3\.8-flash 503 .*3\.6-flash 503 .*3\.5-flash-lite 503/); // teşhis: modeller ve durumları
   assert.equal(calls.length, W.MODELS.length, 'her model bir kez');
+  // Derin ping: her modele küçük istek, sonuçlar listelenir
+  mockGemini(200, { candidates: [{ content: { parts: [{ text: 'merhaba' }] } }] });
+  const deep = await (await worker.fetch(req('/ping', { body: { deep: true } }), env())).json();
+  assert.deepEqual(deep.models.map((m) => [m.model, m.status]), W.MODELS.map((m) => [m, 200]));
+  mockGemini(503, { error: { status: 'UNAVAILABLE' } });
 
   mockGemini(400, { error: { code: 400, status: 'INVALID_ARGUMENT', message: 'kötü şema' } });
   const bad = await (await worker.fetch(req('/chat'), env())).json();
