@@ -368,9 +368,13 @@ Beyin Google Gemini API ücretsiz katmanı; ücretli hiçbir servis/plan yok.
     reddedilir, istek "ulaşılamadı" gibi düşer); Worker yine de bu iki başlığa izin verir. "Bağlantıyı dene" hata
     ayrıntısını (hata adı + host; kod değil) gösterir.
   - Modeller tek yerde: `MODELS` (worker/src/index.js), tercih sırasıyla `gemini-3.8-flash`, `gemini-3.6-flash`,
-    `gemini-3.5-flash-lite` (Gemini docs'ta "Stable" Flash'lar; Pro yok). Ücretsiz katmanda model yoğunken 503 UNAVAILABLE
-    döner: 5xx ya da zaman aşımında sıradakine geçilir (toplam ≤ 18 sn); hepsi yoğunsa `{ error: "busy" }`. 429 ve 400
-    başka modelde denenmez. Cevapta `model` hangisinin cevapladığını söyler. Değiştirirken docs'tan doğrula. `thinkingLevel: LOW`, `maxOutputTokens: 600`, araç modu AUTO.
+    `gemini-3.5-flash-lite`, `gemini-2.5-flash-lite` (kararlı Flash/Flash-Lite; Pro yok). Ücretsiz katmanda modeller
+    yoğunken 503 döner ya da hiç cevap vermez: **yedek istek** (`callGemini`): tercih edilen model `TIMING.hedgeMs`
+    (3 sn) içinde cevap vermezse ya da 5xx/429/400/ağ hatası verirse sıradaki model paralel başlar; ilk başarılı cevap
+    kazanır, diğerleri iptal. Hiçbiri olmazsa en anlamlı hata (400 > 429 > 5xx); 5xx → `busy`, 429 → `quota`; toplam
+    ≤ 18 sn. Model başına ayar `genConfig` (3.x Flash `thinkingLevel: LOW`, 2.5 `thinkingBudget: 0`, Flash-Lite varsayılan).
+    Cevapta `model`; istemci sonraki istekte `model` olarak geri gönderir, Worker onu başa alır (düşünce imzası modele
+    özgü). `/ping {deep:true}` her modele küçük istek atar (Bağlantıyı dene). Değiştirirken docs'tan doğrula.
   - Sırlar yalnızca `wrangler secret`: `GEMINI_API_KEY`, `TAMARIN_TOKEN`. Anahtar Gemini'ye `x-goog-api-key`
     başlığıyla gider (URL'de değil). Erişim kodu `Authorization: Bearer <kod>` ya da gövdede `{ token }`; yoksa/yanlışsa
     401 (sabit süreli karşılaştırma). Uygulama gövdeyi kullanır: `text/plain` gövdeli, özel başlıksız "basit istek"

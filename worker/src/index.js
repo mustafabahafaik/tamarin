@@ -13,14 +13,30 @@
 import { SYSTEM, CONTEXT_GUIDE, TOOLS } from '../../js/assistant/declarations.js';
 
 /**
- * Kararlı Flash modelleri (Gemini docs, Kasım 2026: "Stable"; Pro yok), tercih sırasıyla. Tek yer.
- * Ücretsiz katmanda model yoğunken 503 UNAVAILABLE döner: o zaman sıradakine geçilir.
+ * Kararlı Flash / Flash-Lite modelleri (Gemini docs, Kasım 2026; Pro yok), tercih sırasıyla. Tek yer.
+ * Ücretsiz katmanda model yoğunken 503 UNAVAILABLE döner ya da hiç cevap vermez: yedek istekler (callGemini).
+ * gemini-2.5-flash-lite: eski nesil ama "served until further notice"; yoğunlukta son çare.
  */
-export const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+export const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'];
 export const MODEL = MODELS[0];
 const geminiUrl = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-// Yoğunluk / geçici sunucu hatası: sıradaki modeli dene. 429 (kota) ve 400 (istek) denenmez.
+// Yoğunluk / geçici sunucu hatası.
 const RETRYABLE = new Set([500, 502, 503, 504]);
+/** Yedek istek zamanlaması (testler kısaltır). */
+export const TIMING = { hedgeMs: 3000 };
+
+/** Modele göre üretim ayarı: 3.x Flash düşük düşünme; Flash-Lite varsayılan; 2.5 düşünmesiz (thinkingLevel desteklemez). */
+export function genConfig(model) {
+  const config = { maxOutputTokens: LIMITS.outputTokens };
+  if (/^gemini-3\.\d+-flash$/.test(model)) config.thinkingConfig = { thinkingLevel: 'LOW' };
+  else if (/^gemini-2\.5-/.test(model)) config.thinkingConfig = { thinkingBudget: 0 };
+  return config;
+}
+
+/** İstemcinin önerdiği model (önceki turu cevaplayan; düşünce imzası modele özgü) başa alınır. */
+export function orderModels(prefer) {
+  return typeof prefer === 'string' && MODELS.includes(prefer) ? [prefer, ...MODELS.filter((m) => m !== prefer)] : MODELS;
+}
 
 export const ORIGINS = ['https://mustafabahafaik.github.io', 'http://localhost:5190'];
 export const LIMITS = { perMinute: 10, perDay: 150, bodyBytes: 48 * 1024, outputTokens: 600, upstreamMs: 18000 };
@@ -114,45 +130,90 @@ export function cleanMessages(messages) {
 /* ---------- Gemini ---------- */
 
 /**
- * Gemini'yi çağırır; yoğunluk (5xx) ya da zaman aşımında sıradaki Flash modeline geçer. Toplam süre
- * LIMITS.upstreamMs'i aşmaz. Döner: { res, model } (res: son yanıt) ya da hata fırlatır (hepsi ağdan düştüyse).
+ * Gemini'yi çağırır, yedek isteklerle: önce tercih edilen model; TIMING.hedgeMs içinde cevap gelmezse ya da
+ * 5xx / 429 / ağ hatası gelirse sıradaki model de (paralel) denenir. İlk başarılı cevap kazanır, diğerleri iptal.
+ * Hiçbiri başaramazsa en anlamlı hata seçilir (400 > 429 > 5xx). Toplam süre LIMITS.upstreamMs.
+ * Döner: { res, model, attempts } ya da hata fırlatır (err.attempts ile).
  */
-async function callGemini(env, contents, context) {
-  const body = JSON.stringify({
+function callGemini(env, contents, context, prefer) {
+  const shared = {
     systemInstruction: { parts: [{ text: `${SYSTEM}\n\n${CONTEXT_GUIDE}\n\nVERİ:\n${context}` }] },
     contents,
     tools: [{ functionDeclarations: TOOLS }],
     toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
-    generationConfig: { maxOutputTokens: LIMITS.outputTokens, thinkingConfig: { thinkingLevel: 'LOW' } },
-  });
-  const deadline = Date.now() + LIMITS.upstreamMs;
-  const attempts = []; // [{ model, status | 'süre', ms }] — teşhis için (içerik yok)
-  let last = null;
-  let lastErr = null;
-  for (const model of MODELS) {
-    const left = deadline - Date.now();
-    if (left < 1500) break;
-    const started = Date.now();
-    try {
-      // Tek model tüm süreyi yemesin: denemeye en çok 9 sn (sıradakilere de şans kalsın).
-      const res = await fetch(geminiUrl(model), {
+  };
+  const models = orderModels(prefer);
+  const attempts = []; // [{ model, status | 'süre' | 'ağ', ms }] — teşhis için (içerik yok)
+  const inflight = new Map(); // model → { ctl, started }
+  return new Promise((resolve, reject) => {
+    let next = 0;
+    let done = false;
+    let hedge = 0;
+    let best = null; // en anlamlı başarısız yanıt
+    let lastErr = null;
+    const rank = (status) => (status === 400 ? 3 : status === 429 ? 2 : 1);
+
+    const finish = (value, isError) => {
+      if (done) return;
+      done = true;
+      clearTimeout(hedge);
+      clearTimeout(overall);
+      for (const [model, f] of inflight) {
+        attempts.push({ model, status: 'iptal', ms: Date.now() - f.started });
+        f.ctl.abort();
+      }
+      inflight.clear();
+      if (isError) reject(value); else resolve(value);
+    };
+
+    const settleIfIdle = () => {
+      if (done || inflight.size || next < models.length) return;
+      if (best) finish({ ...best, attempts });
+      else finish(Object.assign(lastErr ?? new Error('upstream'), { attempts }), true);
+    };
+
+    const launch = () => {
+      if (done || next >= models.length) return;
+      const model = models[next++];
+      const ctl = new AbortController();
+      const started = Date.now();
+      inflight.set(model, { ctl, started });
+      clearTimeout(hedge);
+      hedge = setTimeout(launch, TIMING.hedgeMs); // bu da susarsa sıradakini paralel başlat
+      fetch(geminiUrl(model), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-        body,
-        signal: AbortSignal.timeout(Math.min(left, 9000)),
+        body: JSON.stringify({ ...shared, generationConfig: genConfig(model) }),
+        signal: ctl.signal,
+      }).then((res) => {
+        if (done) return;
+        inflight.delete(model);
+        attempts.push({ model, status: res.status, ms: Date.now() - started });
+        if (res.ok) { finish({ res, model, attempts }); return; }
+        if (!best || rank(res.status) > rank(best.res.status)) best = { res, model };
+        launch(); // hemen sıradakini dene
+        settleIfIdle();
+      }, (err) => {
+        if (done) return;
+        inflight.delete(model);
+        attempts.push({ model, status: 'ağ', ms: Date.now() - started });
+        lastErr = err;
+        launch();
+        settleIfIdle();
       });
-      attempts.push({ model, status: res.status, ms: Date.now() - started });
-      last = { res, model, attempts };
-      if (!RETRYABLE.has(res.status)) return last;
-    } catch (err) {
-      attempts.push({ model, status: err?.name === 'TimeoutError' ? 'süre' : 'ağ', ms: Date.now() - started });
-      lastErr = err;
-    }
-  }
-  if (last) return last;
-  const err = lastErr ?? new Error('upstream');
-  err.attempts = attempts;
-  throw err;
+    };
+
+    const overall = setTimeout(() => {
+      if (best) { finish({ ...best, attempts }); return; }
+      const err = new Error('timeout');
+      err.name = 'TimeoutError';
+      for (const [model, f] of inflight) attempts.push({ model, status: 'süre', ms: Date.now() - f.started });
+      inflight.clear();
+      finish(Object.assign(err, { attempts }), true);
+    }, LIMITS.upstreamMs);
+
+    launch();
+  });
 }
 
 /** "3.8-flash 503 (1.2 sn) · 3.6-flash süre (9.0 sn)" */
@@ -161,15 +222,14 @@ export const attemptText = (attempts = []) => attempts
 
 /** Bağlantıyı dene (derin): her modele küçücük bir istek; durum kodları (araç yok, veri yok). */
 async function probeModels(env) {
-  const body = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'merhaba' }] }], generationConfig: { maxOutputTokens: 16 } });
   return Promise.all(MODELS.map(async (model) => {
     const started = Date.now();
     try {
       const res = await fetch(geminiUrl(model), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-        body,
-        signal: AbortSignal.timeout(9000),
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'merhaba' }] }], generationConfig: { ...genConfig(model), maxOutputTokens: 64 } }),
+        signal: AbortSignal.timeout(12000),
       });
       let status = '';
       if (!res.ok) { try { status = (await res.json())?.error?.status ?? ''; } catch { /* gövde yok */ } }
@@ -239,7 +299,7 @@ export default {
     let model;
     let attempts = [];
     try {
-      ({ res: upstream, model, attempts } = await callGemini(env, contents, context));
+      ({ res: upstream, model, attempts } = await callGemini(env, contents, context, body?.model));
     } catch (err) {
       return json({ error: err?.name === 'TimeoutError' ? 'timeout' : 'upstream', detail: attemptText(err.attempts) }, 504, origin);
     }

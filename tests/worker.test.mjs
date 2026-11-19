@@ -147,7 +147,32 @@ await test('yoğunluk: 503 gelince sıradaki Flash modeline geçer; hepsi 503 is
   const bad = await (await worker.fetch(req('/chat'), env())).json();
   assert.equal(bad.error, 'gemini');
   assert.match(bad.detail, /INVALID_ARGUMENT kötü şema/);
-  assert.equal(calls.length, 1, '400 başka modelde denenmez');
+  assert.equal(calls.length, W.MODELS.length, '400 modele özgü olabilir (ör. düşünme ayarı): hepsi denenir');
+});
+
+await test('yedek istek: tercih edilen model susarsa sıradaki paralel başlar, ilk başarılı kazanır; tercih başa alınır', async () => {
+  const saved = W.TIMING.hedgeMs;
+  W.TIMING.hedgeMs = 40;
+  calls = [];
+  globalThis.fetch = (url, init) => {
+    calls.push({ url: String(url), init });
+    if (calls.length === 1) { // ilk model hiç cevap vermez (iptal edilene kadar bekler)
+      return new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(Object.assign(new Error('iptal'), { name: 'AbortError' }))));
+    }
+    return Promise.resolve(new Response(JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: 'yedek cevapladı' }] } }] }), { status: 200 }));
+  };
+  const out = await (await worker.fetch(req('/chat', { body: { model: 'gemini-3.6-flash', messages: [{ role: 'user', parts: [{ text: 'x' }] }], context: '{}' } }), env())).json();
+  assert.equal(out.text, 'yedek cevapladı');
+  const order = calls.map((c) => c.url.match(/models\/([^:]+):/)[1]);
+  assert.equal(order[0], 'gemini-3.6-flash', 'önceki turu cevaplayan model başa alınır');
+  assert.equal(out.model, order[1]);
+  assert.ok(calls[0].init.signal.aborted, 'kaybeden istek iptal edildi');
+  W.TIMING.hedgeMs = saved;
+  // Model başına ayar: 3.x Flash düşük düşünme, 2.5 düşünmesiz, Flash-Lite varsayılan
+  assert.deepEqual(W.genConfig('gemini-3.8-flash').thinkingConfig, { thinkingLevel: 'LOW' });
+  assert.deepEqual(W.genConfig('gemini-2.5-flash-lite').thinkingConfig, { thinkingBudget: 0 });
+  assert.equal(W.genConfig('gemini-3.5-flash-lite').thinkingConfig, undefined);
+  assert.deepEqual(W.orderModels('bilinmeyen'), W.MODELS);
 });
 
 await test('istek sınırı: dakikada 10 (11. istek 429 rate), günde 150 (429 day)', async () => {

@@ -23,6 +23,7 @@ let clearTimer = 0;
 let ui = null;     // açık sheet'in parçaları
 let busy = false;
 let controller = null;
+let lastModel = null; // son cevabı veren model: sonraki turda tercih (düşünce imzası modele özgü)
 let voice = null;  // sesli mod açıkken cevap/hata/kart buraya da gider
 
 /* ---------- Yardımcılar ---------- */
@@ -185,7 +186,9 @@ async function runTurn(parts) {
     const data = await callWorker('/chat', {
       messages: trimHistory(history),
       context: contextJson(getState(), new Date(), weatherSummary()),
+      ...(lastModel ? { model: lastModel } : {}),
     }, { signal: controller.signal });
+    if (typeof data.model === 'string') lastModel = data.model;
     const modelParts = data.content?.parts;
     if (Array.isArray(modelParts) && modelParts.length) history.push({ role: 'model', parts: modelParts });
     const calls = Array.isArray(data.toolCalls) ? data.toolCalls : [];
@@ -315,7 +318,7 @@ export function talk() {
     if (!heard) { showBubble('Duyamadım; tekrar dokun.', 'error'); hideBubble(2500); voice = null; return; }
     showBubble('Düşünüyorum…', 'thinking');
     send(heard);
-    clearTimer = setTimeout(() => { history = []; log = []; owed = null; pending = null; }, KEEP_MS);
+    clearTimer = setTimeout(() => { history = []; log = []; owed = null; pending = null; lastModel = null; }, KEEP_MS);
   };
   showBubble('Dinliyorum…', 'listening');
   try { rec.start(); } catch { rec = null; voice = null; openChat(); }
@@ -382,10 +385,10 @@ export function openChat() {
       controller?.abort();
       ui = null;
       clearTimeout(clearTimer);
-      clearTimer = setTimeout(() => { history = []; log = []; owed = null; pending = null; }, KEEP_MS);
+      clearTimer = setTimeout(() => { history = []; log = []; owed = null; pending = null; lastModel = null; }, KEEP_MS);
     },
   });
 }
 
 // Testler için.
-export const _state = { get history() { return history; }, reset() { history = []; log = []; owed = null; pending = null; } };
+export const _state = { get history() { return history; }, reset() { history = []; log = []; owed = null; pending = null; lastModel = null; } };
