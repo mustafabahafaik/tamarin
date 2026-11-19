@@ -66,6 +66,9 @@ export const ERROR_TEXT = {
   too_large: 'Mesaj çok uzun oldu; daha kısa sor.',
   empty: 'Kısa bir cevap bulamadım; başka türlü sorar mısın?',
   server: 'Bir şeyler ters gitti; birazdan tekrar dene.',
+  gemini: 'Gemini cevap vermedi; birazdan tekrar dene.',
+  upstream: "Gemini'ye ulaşılamadı; birazdan tekrar dene.",
+  config: 'Asistan sunucusu ayarlanmamış (sırlar eksik).',
 };
 
 /** Ön uçuş gerektirmeyen sağlık testi: { ok, detail } (Bağlantıyı dene, ilk adım). */
@@ -119,7 +122,13 @@ export async function callWorker(path, body, { signal, config = loadConfig() } =
   let data = null;
   try { data = await res.json(); } catch { /* boş gövde */ }
   if (res.status === 401) throw new AssistantError('auth');
-  if (data?.error) throw new AssistantError(ERROR_TEXT[data.error] ? data.error : 'server');
+  if (data?.error) {
+    const e = new AssistantError(ERROR_TEXT[data.error] ? data.error : 'server');
+    // Worker'ın kısa teknik ayrıntısı (Gemini hata açıklaması / durum kodu); kullanıcı verisi ya da kod içermez.
+    const extra = [data.error !== e.code ? data.error : '', data.detail ?? (data.status ? String(data.status) : '')].filter(Boolean).join(' · ');
+    if (extra) e.detail = extra.slice(0, 260);
+    throw e;
+  }
   if (!res.ok || !data) throw new AssistantError('server');
   return data;
 }

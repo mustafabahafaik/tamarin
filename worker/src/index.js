@@ -179,10 +179,12 @@ export default {
       return json({ error: err?.name === 'TimeoutError' ? 'timeout' : 'upstream' }, 504, origin);
     }
     if (!upstream.ok) {
-      let status = '';
-      try { status = (await upstream.json())?.error?.status ?? ''; } catch { /* gövde yok */ }
-      if (upstream.status === 429 || status === 'RESOURCE_EXHAUSTED') return json({ error: 'quota' }, 429, origin);
-      return json({ error: upstream.status === 400 ? 'bad_request' : 'upstream', status: upstream.status }, 502, origin);
+      let err = {};
+      try { err = (await upstream.json())?.error ?? {}; } catch { /* gövde yok */ }
+      if (upstream.status === 429 || err.status === 'RESOURCE_EXHAUSTED') return json({ error: 'quota' }, 429, origin);
+      // Gemini'nin hata açıklaması (şema/model/konum sorunu gibi; kullanıcı verisi ya da anahtar içermez), kısaltılmış.
+      const detail = `${upstream.status} ${err.status ?? ''} ${String(err.message ?? '').slice(0, 240)}`.trim();
+      return json({ error: 'gemini', status: upstream.status, detail }, 502, origin);
     }
     let data;
     try { data = await upstream.json(); } catch { return json({ error: 'upstream' }, 502, origin); }

@@ -107,7 +107,8 @@ function say(text, kind) {
 
 function showError(err) {
   const code = err instanceof AssistantError ? err.code : 'server';
-  const entry = { who: 'tam', text: ERROR_TEXT[code] ?? ERROR_TEXT.server, kind: 'error' };
+  const base = ERROR_TEXT[code] ?? ERROR_TEXT.server;
+  const entry = { who: 'tam', text: err?.detail ? `${base} (${err.detail})` : base, kind: 'error' };
   if (code === 'setup' || code === 'auth') {
     entry.action = h('button', {
       type: 'button', class: 'btn btn-secondary chat-act',
