@@ -219,6 +219,12 @@ await test('ayarlar: erişim kodu ve adres yapıştırma artıklarından temizle
   assert.equal(K.cleanToken(' abc-123​\n'), 'abc-123');
   assert.equal(K.cleanToken('kod x'), 'kodx');
   assert.equal(K.cleanUrl(' https://tamarin-asistan.ornek.workers.dev​ '), 'https://tamarin-asistan.ornek.workers.dev');
+  // Apps Script aracısı: tek /exec adresi, yol ?p= ile; sağlık testi adresin kendisi.
+  const gas = 'https://script.google.com/macros/s/AKfyc_ornek-ID/exec';
+  assert.equal(K.endpoint(gas, '/chat'), `${gas}?p=chat`);
+  assert.equal(K.endpoint(`${gas}/`, '/ping'), `${gas}?p=ping`);
+  assert.equal(K.endpoint(gas, '/health'), gas);
+  assert.equal(K.endpoint('tamarin-asistan.ornek.workers.dev/', '/chat'), 'https://tamarin-asistan.ornek.workers.dev/chat');
   const saved = K.saveConfig({ url: ' https://ornek.test ', token: 'x y\n' });
   assert.deepEqual([saved.url, saved.token], ['https://ornek.test', 'xy']);
   assert.ok(!JSON.stringify(S.exportData()).includes('ornek.test'), 'asistan ayarları yedeğe girmez');

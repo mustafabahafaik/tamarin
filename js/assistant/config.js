@@ -28,10 +28,17 @@ export function saveConfig(patch) {
   return next;
 }
 
-/** "tamarin-asistan.x.workers.dev/" → "https://tamarin-asistan.x.workers.dev" + yol */
+/** Google Apps Script aracısı mı (https://script.google.com/macros/s/<id>/exec)? */
+export const isAppsScript = (url) => /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/i.test(String(url ?? '').trim().replace(/\/+$/, ''));
+
+/**
+ * "tamarin-asistan.x.workers.dev/" → "https://tamarin-asistan.x.workers.dev" + yol.
+ * Apps Script aracısında tek adres var: /health → adresin kendisi (GET), /ping → ?p=ping, /chat → ?p=chat.
+ */
 export function endpoint(url, path) {
   let u = String(url ?? '').trim().replace(/\/+$/, '');
   if (u && !/^https?:\/\//i.test(u)) u = `https://${u}`;
+  if (isAppsScript(u)) return path === '/health' ? u : `${u}?p=${path.replace(/^\//, '')}`;
   return `${u}${path}`;
 }
 
