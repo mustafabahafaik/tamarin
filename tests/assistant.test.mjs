@@ -213,4 +213,28 @@ await test('araç tanımları: her araç adı benzersiz, update patch\'inde pin/
   assert.ok(!/\p{Extended_Pictographic}/u.test(D.SYSTEM));
 });
 
+await test('ayarlar: erişim kodu ve adres yapıştırma artıklarından temizlenir; ulaşılamayan Worker "unreachable"', async () => {
+  const K = await import('../js/assistant/config.js');
+  const setOnline = (onLine) => Object.defineProperty(globalThis, 'navigator', { value: { onLine }, configurable: true, writable: true });
+  assert.equal(K.cleanToken(' abc-123​\n'), 'abc-123');
+  assert.equal(K.cleanToken('kod x'), 'kodx');
+  assert.equal(K.cleanUrl(' https://tamarin-asistan.ornek.workers.dev​ '), 'https://tamarin-asistan.ornek.workers.dev');
+  const saved = K.saveConfig({ url: ' https://ornek.test ', token: 'x y\n' });
+  assert.deepEqual([saved.url, saved.token], ['https://ornek.test', 'xy']);
+  assert.ok(!JSON.stringify(S.exportData()).includes('ornek.test'), 'asistan ayarları yedeğe girmez');
+  setOnline(true);
+  globalThis.fetch = async () => { throw new TypeError('Load failed'); };
+  await assert.rejects(K.callWorker('/ping', {}), (e) => e.code === 'unreachable');
+  setOnline(false);
+  await assert.rejects(K.callWorker('/ping', {}), (e) => e.code === 'offline');
+  await assert.rejects(K.callWorker('/ping', {}, { config: { url: 'http://kotu.example', token: 'a' } }), (e) => e.code === 'bad_url');
+  setOnline(true);
+  globalThis.fetch = async (url, init) => {
+    assert.equal(init.headers.Authorization, 'Bearer xy');
+    assert.equal(String(url), 'https://ornek.test/ping');
+    return new Response(JSON.stringify({ error: 'auth' }), { status: 401 });
+  };
+  await assert.rejects(K.callWorker('/ping', {}), (e) => e.code === 'auth');
+});
+
 console.log(`\n${passed} test geçti${process.exitCode ? ', bazıları başarısız' : ''}.`);

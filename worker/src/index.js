@@ -4,6 +4,7 @@
 //   POST /chat  { messages: [Gemini Content...], context: "<JSON özet>" }
 //     → 200 { text, toolCalls: [{ id, name, args }], content }   (content: modelin turu, aynen geri gönderilir)
 //   POST /ping  → 200 { ok: true, model }   (Gemini'yi çağırmaz; "Bağlantıyı dene" için)
+//   GET /health → 200 { ok: true }   (erişim kodu gerekmez; telefondan tarayıcıyla açıp ulaşılabilirliği görmek için)
 //   Hatalar: { error: "auth" | "origin" | "rate" | "day" | "quota" | "too_large" | "bad_request" |
 //              "upstream" | "blocked" | "config" | "timeout" }
 //
@@ -144,6 +145,8 @@ export default {
     const url = new URL(request.url);
     if (origin && !ORIGINS.includes(origin)) return json({ error: 'origin' }, 403, null);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
+    // Tarayıcıdan açılabilen sağlık adresi (sır gerekmez, bilgi vermez): telefon Worker'a ulaşıyor mu?
+    if (request.method === 'GET' && url.pathname === '/health') return json({ ok: true, service: 'tamarin-asistan' }, 200, origin);
     if (request.method !== 'POST' || !['/chat', '/ping'].includes(url.pathname)) return json({ error: 'bad_request' }, 404, origin);
     if (!env.TAMARIN_TOKEN || !env.GEMINI_API_KEY) return json({ error: 'config' }, 500, origin);
 

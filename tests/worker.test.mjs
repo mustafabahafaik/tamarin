@@ -123,6 +123,11 @@ await test('gövde 48 KB üstü 413; bozuk JSON ve geçersiz mesajlar 400; /ping
   assert.deepEqual(await ping.json(), { ok: true, model: W.MODEL });
   assert.equal(calls.length, 0);
   assert.equal((await worker.fetch(req('/baska'), env())).status, 404);
+  // Sağlık adresi: GET, erişim kodu gerekmez, sır ya da model bilgisi vermez.
+  const health = await worker.fetch(req('/health', { method: 'GET', token: null, origin: null }), env());
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { ok: true, service: 'tamarin-asistan' });
+  assert.equal(calls.length, 0);
 });
 
 await test('sırlar eksikse 500 config; içerik loglanmaz (console.* yok)', async () => {

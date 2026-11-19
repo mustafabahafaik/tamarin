@@ -54,8 +54,8 @@ function assistantGroup() {
   const token = h('input', { class: 'input v-secret', type: 'password', id: 'set-asst-token', ...plain });
   url.value = cfg.url;
   token.value = cfg.token;
-  url.addEventListener('change', () => saveConfig({ url: url.value.trim() }));
-  token.addEventListener('change', () => saveConfig({ token: token.value.trim() }));
+  url.addEventListener('change', () => { url.value = saveConfig({ url: url.value }).url; });
+  token.addEventListener('change', () => { token.value = saveConfig({ token: token.value }).token; });
   const eyeIcon = (open) => svg(`<svg class="v-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${open
     ? '<path d="M3 3l18 18"/><path d="M10.6 5.6A9.7 9.7 0 0 1 12 5.5C18 5.5 21.5 12 21.5 12a16 16 0 0 1-3.1 3.9M6.6 6.6C3.9 8.4 2.5 12 2.5 12S6 18.5 12 18.5c1.6 0 3-.4 4.2-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'
     : '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>'}</svg>`);
@@ -79,7 +79,9 @@ function assistantGroup() {
   const result = h('p', { class: 'hint asst-result', role: 'status' });
   const test = h('button', { type: 'button', class: 'btn btn-secondary btn-block' }, 'Bağlantıyı dene');
   test.addEventListener('click', async () => {
-    const next = saveConfig({ url: url.value.trim(), token: token.value.trim() });
+    const next = saveConfig({ url: url.value, token: token.value });
+    url.value = next.url;
+    token.value = next.token;
     test.disabled = true;
     result.textContent = 'Deneniyor…';
     try {

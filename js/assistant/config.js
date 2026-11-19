@@ -5,10 +5,16 @@
 const KEY = 'tamarin.assistant';
 export const TIMEOUT_MS = 20000;
 
+/** Erişim kodu yalnızca görünür ASCII: yapıştırırken gelen boşluk, satır sonu ve görünmez karakterler atılır
+ *  (aksi halde tarayıcı Authorization başlığını hiç göndermez, istek "ağ hatası" gibi düşer). */
+export const cleanToken = (t) => String(t ?? '').replace(/[^\x21-\x7e]/g, '');
+/** Adres: boşluklar ve görünmez karakterler atılır. */
+export const cleanUrl = (u) => String(u ?? '').replace(/[\s\u200b-\u200f\u2060\ufeff]/g, '');
+
 export function loadConfig() {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? '{}') ?? {};
-    return { url: typeof v.url === 'string' ? v.url : '', token: typeof v.token === 'string' ? v.token : '', speak: v.speak === true };
+    return { url: typeof v.url === 'string' ? cleanUrl(v.url) : '', token: typeof v.token === 'string' ? cleanToken(v.token) : '', speak: v.speak === true };
   } catch {
     return { url: '', token: '', speak: false };
   }
@@ -16,6 +22,8 @@ export function loadConfig() {
 
 export function saveConfig(patch) {
   const next = { ...loadConfig(), ...patch };
+  next.url = cleanUrl(next.url);
+  next.token = cleanToken(next.token);
   try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* depolama yok: bu oturumda çalışmaz */ }
   return next;
 }
@@ -38,6 +46,8 @@ export class AssistantError extends Error {
 export const ERROR_TEXT = {
   setup: "Önce Ayarlar > Asistan'dan bağlan.",
   offline: 'İnternet yok gibi; bağlanınca tekrar sor.',
+  unreachable: "Worker'a ulaşamadım. Adresi kontrol et; mobil veride açılmıyorsa Wi-Fi'de dene.",
+  bad_url: 'Worker adresi geçersiz; https:// ile başlayan tam adresi yaz.',
   auth: "Erişim kodu yanlış. Ayarlar > Asistan'dan kontrol et.",
   rate: 'Biraz yavaşla, bir dakika sonra tekrar sor.',
   quota: 'Bugünlük konuşma hakkım doldu, yarın yine konuşuruz.',
@@ -57,6 +67,9 @@ export const ERROR_TEXT = {
  */
 export async function callWorker(path, body, { signal, config = loadConfig() } = {}) {
   if (!config.url || !config.token) throw new AssistantError('setup');
+  let target;
+  try { target = new URL(endpoint(cleanUrl(config.url), path)); } catch { throw new AssistantError('bad_url'); }
+  if (target.protocol !== 'https:' && target.hostname !== 'localhost') throw new AssistantError('bad_url');
   if (globalThis.navigator && navigator.onLine === false) throw new AssistantError('offline');
   const timeout = new AbortController();
   const timer = setTimeout(() => timeout.abort(), TIMEOUT_MS);
@@ -64,15 +77,17 @@ export async function callWorker(path, body, { signal, config = loadConfig() } =
   signal?.addEventListener('abort', onAbort);
   let res;
   try {
-    res = await fetch(endpoint(config.url, path), {
+    res = await fetch(target, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cleanToken(config.token)}` },
       body: JSON.stringify(body ?? {}),
       signal: timeout.signal,
       cache: 'no-store',
     });
   } catch {
-    throw new AssistantError(signal?.aborted ? 'aborted' : timeout.signal.aborted ? 'timeout' : 'offline');
+    // Ağ hatası: cihaz çevrimdışıysa "internet yok", değilse Worker'a ulaşılamadı (DNS, engel, CORS).
+    const offline = globalThis.navigator && navigator.onLine === false;
+    throw new AssistantError(signal?.aborted ? 'aborted' : timeout.signal.aborted ? 'timeout' : offline ? 'offline' : 'unreachable');
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', onAbort);

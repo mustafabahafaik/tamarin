@@ -350,6 +350,9 @@ Beyin Google Gemini API ücretsiz katmanı; ücretli hiçbir servis/plan yok.
   - `POST /chat {messages, context}` → Gemini `generateContent` → `{ text, toolCalls: [{id, name, args}], content }`.
     `content` modelin turu; istemci onu (thoughtSignature dahil) AYNEN geçmişe koyar ve geri gönderir.
     `POST /ping`: yalnızca erişim kodunu doğrular, Gemini'yi çağırmaz ("Bağlantıyı dene").
+    `GET /health`: erişim kodu gerektirmez, bilgi vermez `{ok:true}`; telefondan tarayıcıyla açıp Worker'a ulaşılıyor mu bakmak için.
+  - İstemci erişim kodundan görünür ASCII dışını, adresten boşluk/görünmez karakterleri atar (`cleanToken`, `cleanUrl`);
+    ağ hatasında cihaz çevrimiçiyse "Worker'a ulaşamadım" (`unreachable`), değilse "internet yok" der.
   - Model tek sabitte: `MODEL` (worker/src/index.js), `gemini-3.8-flash` (Gemini docs'ta "Stable" en yeni Flash;
     Pro değil). Değiştirirken docs'tan doğrula. `thinkingLevel: LOW`, `maxOutputTokens: 600`, araç modu AUTO.
   - Sırlar yalnızca `wrangler secret`: `GEMINI_API_KEY`, `TAMARIN_TOKEN`. Anahtar Gemini'ye `x-goog-api-key`
