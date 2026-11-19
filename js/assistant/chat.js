@@ -2,6 +2,8 @@
 // hafif kafa hareketi, düşünürken yavaş nefes; transform/opacity), mesaj balonları (Baha sağda, Tamarin solda),
 // altta yazı kutusu + (varsa) mikrofon + Gönder. Model araç çağırınca onay kartı; onaylanmadan hiçbir şey yazılmaz.
 // Sohbet geçmişi yalnızca bellekte: sheet kapanınca 10 dk tutulur, sonra silinir. Modele en çok son 10 mesaj gider.
+// Sesli mod (talk): yüzde tamarine tek dokunuş → ekran açılmadan dinler (webkitSpeechRecognition, tr-TR), soruyu
+// aynı geçmişle gönderir, cevabı balonda gösterip sesli okur. Onay gerekirse sohbet sheet'i kartla açılır.
 import { h, svg, openSheet, toast } from '../ui.js';
 import { getState, restore } from '../store.js';
 import { realForecast, describe } from '../weather.js';
@@ -21,6 +23,7 @@ let clearTimer = 0;
 let ui = null;     // açık sheet'in parçaları
 let busy = false;
 let controller = null;
+let voice = null;  // sesli mod açıkken cevap/hata/kart buraya da gider
 
 /* ---------- Yardımcılar ---------- */
 
@@ -51,9 +54,9 @@ export function trimHistory(list, max = MAX_TURNS) {
 
 /* ---------- Ses ---------- */
 
-function speak(text) {
+function speak(text, force = false) {
   const synth = globalThis.speechSynthesis;
-  if (!synth || !loadConfig().speak || !text) return;
+  if (!synth || (!force && !loadConfig().speak) || !text) return;
   synth.cancel(); // yeni mesajda önceki okuma durur
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'tr-TR';
@@ -96,6 +99,7 @@ function render() {
 function say(text, kind) {
   log.push({ who: 'tam', text, kind });
   render();
+  if (voice) { voice.show(text, kind); if (kind !== 'error') speak(text, true); return; }
   if (kind !== 'error') {
     speak(text);
     if (ui && !loadConfig().speak) { // okuma kapalıysa kısa bir "konuşma" hareketi
@@ -117,6 +121,7 @@ function showError(err) {
   }
   log.push(entry);
   render();
+  voice?.show(entry.text, 'error', code === 'setup' || code === 'auth');
 }
 
 /* ---------- Onay kartı ---------- */
@@ -191,6 +196,7 @@ async function runTurn(parts) {
       const entry = { who: 'tam', text: '', kind: 'card', el: h('div', { class: 'chat-msg is-tam is-card' }, card) };
       log.push(entry);
       pending = { calls, approval, entry };
+      voice?.card(); // onay gerekiyor: sohbet ekranı kartla açılır
     } else if (!data.text) {
       showError(new AssistantError('empty'));
     }
@@ -223,6 +229,98 @@ function send(text) {
   runTurn(parts);
 }
 
+/* ---------- Sesli mod ---------- */
+
+const SpeechRec = () => globalThis.webkitSpeechRecognition ?? globalThis.SpeechRecognition;
+let bubbleEl = null;
+let hideTimer = 0;
+let rec = null;
+
+function voiceBubble() {
+  if (bubbleEl?.isConnected) return bubbleEl;
+  bubbleEl = h('button', { type: 'button', class: 'voice-bubble', 'aria-live': 'polite' });
+  bubbleEl.addEventListener('click', () => { // balona dokununca: sohbetin tamamı
+    if (rec) { rec.stop(); return; }
+    endVoice();
+    openChat();
+  });
+  document.body.append(bubbleEl);
+  return bubbleEl;
+}
+
+function showBubble(text, state) {
+  clearTimeout(hideTimer);
+  const el = voiceBubble();
+  el.dataset.state = state;
+  const dots = state === 'listening' || state === 'thinking'
+    ? [h('span', { class: 'voice-dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))] : [];
+  el.replaceChildren(...dots, h('span', { class: 'voice-text' }, text)); // replaceChildren null'u "null" yazar
+  el.classList.add('is-on');
+}
+
+function hideBubble(after = 0) {
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => bubbleEl?.classList.remove('is-on'), after);
+}
+
+function endVoice() {
+  voice = null;
+  rec?.abort?.();
+  rec = null;
+  hideBubble();
+}
+
+/**
+ * Tamarine tek dokunuş: hemen dinler, sorar, cevabı balonda gösterip sesli okur.
+ * Tanıma yoksa ya da asistan ayarlanmamışsa sohbet ekranını açar.
+ */
+export function talk() {
+  const SR = SpeechRec();
+  const cfg = loadConfig();
+  if (!SR || !cfg.url || !cfg.token || busy) { openChat(); return; }
+  // iOS: konuşma sentezi yalnızca bir dokunuşla açılır; boş bir okumayla şimdi aç.
+  try { globalThis.speechSynthesis?.speak(new SpeechSynthesisUtterance('')); } catch { /* yoksa geç */ }
+  stopSpeaking();
+  clearTimeout(clearTimer);
+  if (rec) { rec.stop(); return; } // ikinci dokunuş: dinlemeyi bitir
+
+  voice = {
+    show: (text, kind, settings) => {
+      showBubble(text, kind === 'error' ? 'error' : 'answer');
+      if (settings) { hideBubble(6000); return; }
+      hideBubble(kind === 'error' ? 6000 : Math.min(16000, 5000 + text.length * 60));
+    },
+    card: () => { endVoice(); openChat(); },
+  };
+  let heard = '';
+  rec = new SR();
+  rec.lang = 'tr-TR';
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+  rec.onresult = (e) => {
+    heard = [...e.results].map((r) => r[0].transcript).join(' ').trim();
+    showBubble(heard || 'Dinliyorum…', 'listening');
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      voice = null;
+      showBubble('Mikrofon izni yok; yazarak sorabilirsin.', 'error');
+      hideBubble(2500);
+      setTimeout(openChat, 900);
+    }
+  };
+  rec.onend = () => {
+    rec = null;
+    if (!voice) return;
+    if (!heard) { showBubble('Duyamadım; tekrar dokun.', 'error'); hideBubble(2500); voice = null; return; }
+    showBubble('Düşünüyorum…', 'thinking');
+    send(heard);
+    clearTimer = setTimeout(() => { history = []; log = []; owed = null; pending = null; }, KEEP_MS);
+  };
+  showBubble('Dinliyorum…', 'listening');
+  try { rec.start(); } catch { rec = null; voice = null; openChat(); }
+}
+
 /* ---------- Sheet ---------- */
 
 function micButton(input) {
@@ -248,6 +346,7 @@ function micButton(input) {
 
 /** Sohbeti açar (yüzde tamarine kısa dokunma). */
 export function openChat() {
+  if (voice) endVoice();
   clearTimeout(clearTimer);
   const face = h('div', { class: 'chat-face', 'aria-hidden': 'true' },
     h('img', { src: 'assets/tamarin-768.webp', alt: '', draggable: 'false', decoding: 'async' }));

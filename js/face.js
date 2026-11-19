@@ -14,7 +14,7 @@ import { today0, nowParts, isoDow, formatLong, GUNLER, AYLAR } from './dates.js'
 import { createWeatherFx } from './weather-fx.js';
 import { openSettings } from './settings.js';
 import { playCall } from './sound.js';
-import { openChat } from './assistant/chat.js';
+import { talk } from './assistant/chat.js';
 
 /* ---------- Geometri ---------- */
 
@@ -530,7 +530,8 @@ export function createFaceScreen(modules) {
     onLite: () => setCache('blocksLite', true),
   });
 
-  // Tamarin: kısa dokunma sohbeti açar (js/assistant/chat.js); uzun basma eski tepki (ses + zıplama).
+  // Tamarin: kısa dokunma sesli konuşma (js/assistant/chat.js talk: dinler, cevabı balonda gösterip okur);
+  // uzun basma eski tepki (ses + zıplama).
   const LONG_MS = 480;
   let pressTimer = 0;
   let longFired = false;
@@ -549,7 +550,7 @@ export function createFaceScreen(modules) {
   hit.addEventListener('contextmenu', (event) => event.preventDefault());
   hit.addEventListener('click', () => {
     if (longFired) { longFired = false; return; }
-    openChat();
+    talk(); // tek dokunuş: hemen dinler, sesle cevap verir
   });
 
   async function loadWeather(force = false) {

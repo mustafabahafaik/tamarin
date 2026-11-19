@@ -395,7 +395,11 @@ Beyin Google Gemini API ücretsiz katmanı; ücretli hiçbir servis/plan yok.
   birden çok çağrıda tek kart + "Hepsini onayla". Silme (ya da silme içeren kart) kırmızı ve iki dokunuş
   (`createApproval`: ilk onay "armed"). Onaylanınca store API'siyle uygulanır, toast'ta "Geri al"; şema hatası
   kullanıcıya gösterilir ve modele hata olarak döner. Sonuç modele function response (aynı id, aynı sıra).
-- **Arayüz (`chat.js`):** yüzde tamarine KISA dokunma sohbeti açar, UZUN basma (480 ms) eski ses + zıplama.
+- **Arayüz (`chat.js`):** yüzde tamarine KISA dokunma **sesli mod** (`talk`): ekran açılmadan hemen dinler
+  (webkitSpeechRecognition tr-TR, ara sonuç balonda), soruyu gönderir, cevabı halkanın altındaki balonda (`.voice-bubble`)
+  gösterip her zaman sesli okur (iOS için dokunuşta boş bir okumayla sentez açılır). Onay gerekirse sohbet sheet'i kartla
+  açılır; balona dokunmak sohbetin tamamını açar. Tanıma yoksa/izin yoksa/asistan ayarlı değilse doğrudan sohbet açılır.
+  UZUN basma (480 ms) eski ses + zıplama. Sohbet sheet'i (`openChat`):
   Yüksek sheet: küçük tamarin (düşünürken nefes, konuşurken kafa hareketi; transform), balonlar (Baha sağda),
   yazı kutusu + Gönder; `webkitSpeechRecognition` varsa mikrofon (tr-TR). Boşken öneri çipleri. "Tamarin
   düşünüyor…" + İptal (AbortController), 20 sn zaman aşımı. Geçmiş yalnızca bellekte; sheet kapanınca 10 dk
