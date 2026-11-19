@@ -231,6 +231,7 @@ await test('ayarlar: erişim kodu ve adres yapıştırma artıklarından temizle
   setOnline(true);
   globalThis.fetch = async (url, init) => {
     assert.equal(init.headers.Authorization, 'Bearer xy');
+    assert.equal(init.cache, undefined, 'cache seçeneği yok (Safari Cache-Control/Pragma ekler, CORS bozulur)');
     assert.equal(String(url), 'https://ornek.test/ping');
     return new Response(JSON.stringify({ error: 'auth' }), { status: 401 });
   };

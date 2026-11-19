@@ -353,6 +353,9 @@ Beyin Google Gemini API ücretsiz katmanı; ücretli hiçbir servis/plan yok.
     `GET /health`: erişim kodu gerektirmez, bilgi vermez `{ok:true}`; telefondan tarayıcıyla açıp Worker'a ulaşılıyor mu bakmak için.
   - İstemci erişim kodundan görünür ASCII dışını, adresten boşluk/görünmez karakterleri atar (`cleanToken`, `cleanUrl`);
     ağ hatasında cihaz çevrimiçiyse "Worker'a ulaşamadım" (`unreachable`), değilse "internet yok" der.
+  - **Safari:** istemci `fetch`'e `cache` seçeneği VERMEZ (WebKit "no-store"da Cache-Control/Pragma ekler, ön uçuş
+    reddedilir, istek "ulaşılamadı" gibi düşer); Worker yine de bu iki başlığa izin verir. "Bağlantıyı dene" hata
+    ayrıntısını (hata adı + host; kod değil) gösterir.
   - Model tek sabitte: `MODEL` (worker/src/index.js), `gemini-3.8-flash` (Gemini docs'ta "Stable" en yeni Flash;
     Pro değil). Değiştirirken docs'tan doğrula. `thinkingLevel: LOW`, `maxOutputTokens: 600`, araç modu AUTO.
   - Sırlar yalnızca `wrangler secret`: `GEMINI_API_KEY`, `TAMARIN_TOKEN`. Anahtar Gemini'ye `x-goog-api-key`

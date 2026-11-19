@@ -88,7 +88,7 @@ function assistantGroup() {
       const data = await callWorker('/ping', {}, { config: next });
       result.textContent = `Bağlandı · ${data.model ?? 'Gemini'}`;
     } catch (err) {
-      result.textContent = ERROR_TEXT[err.code] ?? ERROR_TEXT.server;
+      result.textContent = `${ERROR_TEXT[err.code] ?? ERROR_TEXT.server}${err.detail ? ` (${err.detail})` : ''}`;
     } finally {
       test.disabled = false;
     }

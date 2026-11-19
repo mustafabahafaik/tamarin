@@ -53,6 +53,7 @@ await test('CORS: izinli kökenler için ön uçuş (OPTIONS) 204 + başlıklar;
     assert.equal(res.status, 204);
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), origin);
     assert.match(res.headers.get('Access-Control-Allow-Headers'), /Authorization/);
+    assert.match(res.headers.get('Access-Control-Allow-Headers'), /Cache-Control, Pragma/); // Safari ekleyebilir
     assert.match(res.headers.get('Access-Control-Allow-Methods'), /POST/);
   }
   const bad = await worker.fetch(req('/chat', { origin: 'https://kotu.example' }), env());

@@ -29,7 +29,8 @@ function cors(origin) {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    // Safari bazı durumlarda Cache-Control / Pragma da ekler; izin verilmezse ön uçuş düşer.
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, Cache-Control, Pragma',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };

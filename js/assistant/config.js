@@ -82,12 +82,14 @@ export async function callWorker(path, body, { signal, config = loadConfig() } =
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cleanToken(config.token)}` },
       body: JSON.stringify(body ?? {}),
       signal: timeout.signal,
-      cache: 'no-store',
+      // cache seçeneği YOK: Safari "no-store"da isteğe Cache-Control/Pragma ekler, CORS ön uçuşu bozulur.
     });
-  } catch {
+  } catch (err) {
     // Ağ hatası: cihaz çevrimdışıysa "internet yok", değilse Worker'a ulaşılamadı (DNS, engel, CORS).
     const offline = globalThis.navigator && navigator.onLine === false;
-    throw new AssistantError(signal?.aborted ? 'aborted' : timeout.signal.aborted ? 'timeout' : offline ? 'offline' : 'unreachable');
+    const e = new AssistantError(signal?.aborted ? 'aborted' : timeout.signal.aborted ? 'timeout' : offline ? 'offline' : 'unreachable');
+    e.detail = `${err?.name ?? 'Error'}: ${String(err?.message ?? '').slice(0, 80)} · ${target.host}`; // kod içermez
+    throw e;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', onAbort);
