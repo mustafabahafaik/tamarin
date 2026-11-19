@@ -3,7 +3,7 @@
 // ağ yoksa önbellekteki kopya verilir. Yeni bir uygulama dosyası eklenince
 // SHELL listesine ekle ve CACHE sürümünü artır.
 
-const CACHE = 'tamarin-v24';
+const CACHE = 'tamarin-v25';
 
 const SHELL = [
   './',

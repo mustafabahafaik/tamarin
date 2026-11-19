@@ -42,7 +42,8 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
   - `js/assistant/` — yapay zekâ asistanı: `declarations.js` (sistem talimatı + araç tanımları; Worker da kullanır),
     `context.js` (bağlam özeti + hassas filtre), `tools.js` (araç çağrısı → onay → store), `config.js` (ayarlar,
     Worker istemcisi, hata metinleri), `chat.js` (sohbet sheet'i)
-  - `worker/` — Cloudflare Worker (kendi `package.json` + `wrangler.toml`; uygulama yüklemez, sw.js SHELL'e girmez)
+  - `worker/` — Cloudflare Worker (kendi `package.json` + `wrangler.toml`; uygulama yüklemez, sw.js SHELL'e girmez);
+    `worker/pages/` — Cloudflare Pages aracısı (`_worker.js`: isteği servis bağlantısıyla Worker'a iletir, sır yok)
   - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`, `phones`, `business`, `ring-blocks`, `assistant`, `worker`: `node tests/<ad>.test.mjs`);
     `tests/fixtures/ornek.ics` örnek takvim (`.gitattributes`: `-text`, CRLF bayt bayt korunur)
   - `manifest.webmanifest`, `sw.js`, `icons/`
@@ -346,7 +347,12 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
 Ortadaki tamarin, uygulamadaki verilere bakarak Türkçe soru cevaplar ve onayla kayıt ekler/değiştirir.
 Beyin Google Gemini API ücretsiz katmanı; ücretli hiçbir servis/plan yok.
 
-- **Mimari:** tarayıcı Gemini'ye doğrudan bağlanmaz. Araya Cloudflare Worker girer (Workers Free, `worker/`):
+- **Mimari:** tarayıcı Gemini'ye doğrudan bağlanmaz. Araya Cloudflare Worker girer (Workers Free, `worker/`).
+  Uygulamanın kullandığı adres **https://tamarin-asistan.pages.dev**: Pages aracısı (`worker/pages/`) isteği servis
+  bağlantısıyla (`ASISTAN` → `tamarin-asistan`) aynen Worker'a iletir. Sebep: iPhone'da github.io sayfasından
+  `*.workers.dev`'e giden istekler (ön uçuşsuz GET bile) "Load failed" ile kesiliyordu; Safari'de doğrudan açılıyordu.
+  Sırlar, sınırlar, CORS ve doğrulama yalnızca Worker'da. Yayın: `cd worker && npx wrangler deploy`, aracı:
+  `cd worker/pages && npx wrangler pages deploy --branch main` (proje bir kez `--force` ile klasik Pages'te açıldı).
   - `POST /chat {messages, context}` → Gemini `generateContent` → `{ text, toolCalls: [{id, name, args}], content }`.
     `content` modelin turu; istemci onu (thoughtSignature dahil) AYNEN geçmişe koyar ve geri gönderir.
     `POST /ping`: yalnızca erişim kodunu doğrular, Gemini'yi çağırmaz ("Bağlantıyı dene").

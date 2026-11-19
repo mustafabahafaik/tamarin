@@ -50,7 +50,7 @@ const textBlock = (name, hint, id) => h('span', { class: 'set-text' },
 function assistantGroup() {
   const cfg = loadConfig();
   const plain = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' };
-  const url = h('input', { class: 'input', type: 'url', id: 'set-asst-url', inputmode: 'url', placeholder: 'https://tamarin-asistan.….workers.dev', ...plain });
+  const url = h('input', { class: 'input', type: 'url', id: 'set-asst-url', inputmode: 'url', placeholder: 'https://tamarin-asistan.pages.dev', ...plain });
   const token = h('input', { class: 'input v-secret', type: 'password', id: 'set-asst-token', ...plain });
   url.value = cfg.url;
   token.value = cfg.token;

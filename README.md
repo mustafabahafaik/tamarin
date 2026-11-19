@@ -85,10 +85,15 @@ girer (anahtar telefonda değil, Worker'da durur). Ücretli hiçbir servis gerek
    npx wrangler secret put GEMINI_API_KEY       # 1. adımdaki anahtarı yapıştır
    node -e "console.log(crypto.randomUUID() + crypto.randomUUID())"   # erişim kodu üret
    npx wrangler secret put TAMARIN_TOKEN        # üretilen erişim kodunu yapıştır
-   npx wrangler deploy                          # çıkan https://….workers.dev adresi Worker adresidir
+   npx wrangler deploy
+   cd pages && npx wrangler pages deploy --branch main   # aracı: https://<proje>.pages.dev
    ```
 
-3. **iPhone:** Tamarin > Ayarlar > **Asistan**: Worker adresini ve erişim kodunu yaz, **Bağlantıyı dene**.
+   Uygulamada **pages.dev** adresi kullanılır: iPhone'da başka bir siteden `workers.dev`'e giden istekler kesilebiliyor;
+   Pages aracısı isteği aynen Worker'a iletir (sır gerekmez). İlk kurulumda proje bir kez
+   `npx wrangler pages project create <proje> --production-branch main --force` ile açılır.
+
+3. **iPhone:** Tamarin > Ayarlar > **Asistan**: pages.dev adresini ve erişim kodunu yaz, **Bağlantıyı dene**.
 
 Sınırlar: dakikada 10, günde 150 soru (Worker'da). Erişim kodu yalnızca telefonda saklanır, yedeğe girmez.
 
