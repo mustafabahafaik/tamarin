@@ -47,6 +47,21 @@ await test('erişim kodu yoksa ya da yanlışsa 401; CORS başlığı izinli kö
   assert.equal(calls.length, 0, "Gemini'ye gidilmedi");
 });
 
+await test('basit istek: kod gövdede (text/plain, başlık yok) kabul edilir; yanlış gövde kodu 401', async () => {
+  mockGemini(200, { candidates: [{ content: { role: 'model', parts: [{ text: 'Merhaba Baha' }] } }] });
+  const simple = (token, path = '/chat') => new Request(`https://tamarin-asistan.example.workers.dev${path}`, {
+    method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify({ token, messages: [{ role: 'user', parts: [{ text: 'Merhaba' }] }], context: '{}' }),
+  });
+  const ok = await worker.fetch(simple(TOKEN), env());
+  assert.equal(ok.status, 200);
+  assert.equal((await ok.json()).text, 'Merhaba Baha');
+  assert.equal(ok.headers.get('Access-Control-Allow-Origin'), ORIGIN);
+  assert.ok(!JSON.parse(calls[0].init.body).contents.some((c) => JSON.stringify(c).includes(TOKEN)), "kod Gemini'ye gitmez");
+  assert.equal((await worker.fetch(simple('yanlis'), env())).status, 401);
+  assert.deepEqual(await (await worker.fetch(simple(TOKEN, '/ping'), env())).json(), { ok: true, model: W.MODEL });
+});
+
 await test('CORS: izinli kökenler için ön uçuş (OPTIONS) 204 + başlıklar; izinsiz köken 403, başlık yok', async () => {
   for (const origin of ['https://mustafabahafaik.github.io', 'http://localhost:5190']) {
     const res = await worker.fetch(req('/chat', { method: 'OPTIONS', origin, token: null }), env());

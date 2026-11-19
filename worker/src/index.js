@@ -151,17 +151,20 @@ export default {
     if (request.method !== 'POST' || !['/chat', '/ping'].includes(url.pathname)) return json({ error: 'bad_request' }, 404, origin);
     if (!env.TAMARIN_TOKEN || !env.GEMINI_API_KEY) return json({ error: 'config' }, 500, origin);
 
-    const auth = request.headers.get('Authorization') ?? '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-    if (!sameToken(token, env.TAMARIN_TOKEN)) return json({ error: 'auth' }, 401, origin);
-    if (url.pathname === '/ping') return json({ ok: true, model: MODEL }, 200, origin);
-
     const declared = Number(request.headers.get('Content-Length'));
     if (declared > LIMITS.bodyBytes) return json({ error: 'too_large' }, 413, origin);
     const raw = await request.text();
     if (new TextEncoder().encode(raw).length > LIMITS.bodyBytes) return json({ error: 'too_large' }, 413, origin);
-    let body;
-    try { body = JSON.parse(raw); } catch { return json({ error: 'bad_request' }, 400, origin); }
+    let body = null;
+    try { body = raw ? JSON.parse(raw) : {}; } catch { body = null; }
+
+    // Erişim kodu: Authorization: Bearer <kod> ya da gövdede { token }. Uygulama ikincisini kullanır: text/plain
+    // gövdeli, özel başlıksız "basit istek" Safari'de CORS ön uçuşu (OPTIONS) hiç gerektirmez.
+    const auth = request.headers.get('Authorization') ?? '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : (typeof body?.token === 'string' ? body.token : '');
+    if (!sameToken(token, env.TAMARIN_TOKEN)) return json({ error: 'auth' }, 401, origin);
+    if (url.pathname === '/ping') return json({ ok: true, model: MODEL }, 200, origin);
+    if (!body) return json({ error: 'bad_request' }, 400, origin);
     const contents = cleanMessages(body?.messages);
     const context = typeof body?.context === 'string' ? body.context.slice(0, 12000) : '{}';
     if (!contents) return json({ error: 'bad_request' }, 400, origin);

@@ -230,8 +230,12 @@ await test('ayarlar: erişim kodu ve adres yapıştırma artıklarından temizle
   await assert.rejects(K.callWorker('/ping', {}, { config: { url: 'http://kotu.example', token: 'a' } }), (e) => e.code === 'bad_url');
   setOnline(true);
   globalThis.fetch = async (url, init) => {
-    assert.equal(init.headers.Authorization, 'Bearer xy');
-    assert.equal(init.cache, undefined, 'cache seçeneği yok (Safari Cache-Control/Pragma ekler, CORS bozulur)');
+    // Basit istek: ön uçuş yok (özel başlık yok, text/plain, cache seçeneği yok); kod gövdede.
+    assert.deepEqual(Object.keys(init.headers), ['Content-Type']);
+    assert.match(init.headers['Content-Type'], /^text\/plain/);
+    assert.equal(init.cache, undefined, 'cache seçeneği yok (Safari Cache-Control/Pragma ekler)');
+    assert.equal(JSON.parse(init.body).token, 'xy');
+    assert.ok(!String(url).includes('xy'), 'kod URL\'de değil');
     assert.equal(String(url), 'https://ornek.test/ping');
     return new Response(JSON.stringify({ error: 'auth' }), { status: 401 });
   };

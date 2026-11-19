@@ -353,13 +353,15 @@ Beyin Google Gemini API ücretsiz katmanı; ücretli hiçbir servis/plan yok.
     `GET /health`: erişim kodu gerektirmez, bilgi vermez `{ok:true}`; telefondan tarayıcıyla açıp Worker'a ulaşılıyor mu bakmak için.
   - İstemci erişim kodundan görünür ASCII dışını, adresten boşluk/görünmez karakterleri atar (`cleanToken`, `cleanUrl`);
     ağ hatasında cihaz çevrimiçiyse "Worker'a ulaşamadım" (`unreachable`), değilse "internet yok" der.
-  - **Safari:** istemci `fetch`'e `cache` seçeneği VERMEZ (WebKit "no-store"da Cache-Control/Pragma ekler, ön uçuş
+  - **Safari:** istek basit istektir (yukarıda); istemci `fetch`'e `cache` seçeneği VERMEZ (WebKit "no-store"da Cache-Control/Pragma ekler, ön uçuş
     reddedilir, istek "ulaşılamadı" gibi düşer); Worker yine de bu iki başlığa izin verir. "Bağlantıyı dene" hata
     ayrıntısını (hata adı + host; kod değil) gösterir.
   - Model tek sabitte: `MODEL` (worker/src/index.js), `gemini-3.8-flash` (Gemini docs'ta "Stable" en yeni Flash;
     Pro değil). Değiştirirken docs'tan doğrula. `thinkingLevel: LOW`, `maxOutputTokens: 600`, araç modu AUTO.
   - Sırlar yalnızca `wrangler secret`: `GEMINI_API_KEY`, `TAMARIN_TOKEN`. Anahtar Gemini'ye `x-goog-api-key`
-    başlığıyla gider (URL'de değil). `Authorization: Bearer <TAMARIN_TOKEN>` yoksa/yanlışsa 401 (sabit süreli karşılaştırma).
+    başlığıyla gider (URL'de değil). Erişim kodu `Authorization: Bearer <kod>` ya da gövdede `{ token }`; yoksa/yanlışsa
+    401 (sabit süreli karşılaştırma). Uygulama gövdeyi kullanır: `text/plain` gövdeli, özel başlıksız "basit istek"
+    tarayıcıda CORS ön uçuşu gerektirmez (iPhone Safari ön uçuşta "Load failed" veriyordu). Kod URL'ye yazılmaz.
   - CORS yalnızca `https://mustafabahafaik.github.io` ve `http://localhost:5190`; başka Origin 403.
   - Sınır KV'de (`RATE`): dakikada 10, günde 150 istek (İstanbul günü) → 429 `rate` / `day`. Gövde ≤ 48 KB (413).
     Gemini 429 / RESOURCE_EXHAUSTED → 429 `{ error: "quota" }`.

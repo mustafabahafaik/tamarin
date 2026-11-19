@@ -61,6 +61,18 @@ export const ERROR_TEXT = {
   server: 'Bir şeyler ters gitti; birazdan tekrar dene.',
 };
 
+/** Ön uçuş gerektirmeyen sağlık testi: { ok, detail } (Bağlantıyı dene, ilk adım). */
+export async function checkHealth(config = loadConfig()) {
+  let target;
+  try { target = new URL(endpoint(cleanUrl(config.url), '/health')); } catch { return { ok: false, detail: 'adres geçersiz' }; }
+  try {
+    const res = await fetch(target, { credentials: 'omit', signal: AbortSignal.timeout?.(10000) });
+    return { ok: res.ok, detail: res.ok ? 'sağlık ✓' : `sağlık HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, detail: `sağlık ✗ ${err?.name ?? 'Error'}: ${String(err?.message ?? '').slice(0, 60)}` };
+  }
+}
+
 /**
  * Worker'a POST. Döner: yanıt gövdesi. Hata: AssistantError(code).
  *   callWorker('/chat', { messages, context }, { signal })
@@ -77,12 +89,15 @@ export async function callWorker(path, body, { signal, config = loadConfig() } =
   signal?.addEventListener('abort', onAbort);
   let res;
   try {
+    // "Basit istek": text/plain gövde, özel başlık yok, cache seçeneği yok → tarayıcı CORS ön uçuşu (OPTIONS)
+    // göndermez. Erişim kodu Authorization başlığında değil gövdede gider (HTTPS içinde; URL'de değil).
+    // Safari ön uçuşta takılıyordu (Load failed); bu biçim ona hiç gerek bırakmaz.
     res = await fetch(target, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cleanToken(config.token)}` },
-      body: JSON.stringify(body ?? {}),
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({ ...(body ?? {}), token: cleanToken(config.token) }),
       signal: timeout.signal,
-      // cache seçeneği YOK: Safari "no-store"da isteğe Cache-Control/Pragma ekler, CORS ön uçuşu bozulur.
+      credentials: 'omit',
     });
   } catch (err) {
     // Ağ hatası: cihaz çevrimdışıysa "internet yok", değilse Worker'a ulaşılamadı (DNS, engel, CORS).

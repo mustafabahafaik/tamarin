@@ -10,7 +10,7 @@ import { ymd, AYLAR } from './dates.js';
 import { exportToCalendar, pendingCount, METHOD_LABELS } from './ics.js';
 import { playCall } from './sound.js';
 import { searchCities, PREVIEWS, getPreview, setPreview } from './weather.js';
-import { loadConfig, saveConfig, callWorker, ERROR_TEXT } from './assistant/config.js';
+import { loadConfig, saveConfig, callWorker, checkHealth, ERROR_TEXT } from './assistant/config.js';
 
 const LABELS = { bills: 'fatura', classes: 'ders', exams: 'sınav', days: 'özel gün', tasks: 'görev', phones: 'telefon', accounts: 'hesap' };
 const MAX_BACKUP = 2 * 1024 * 1024;
@@ -84,11 +84,14 @@ function assistantGroup() {
     token.value = next.token;
     test.disabled = true;
     result.textContent = 'Deneniyor…';
+    // 1) Ön uçuş gerektirmeyen GET /health, 2) erişim koduyla POST /ping. İkisinin sonucu birlikte gösterilir:
+    // sağlık da düşüyorsa cihazdaki bir engelleyici (içerik engelleyici, DNS/VPN profili) Worker'ı kesiyordur.
+    const health = await checkHealth(next);
     try {
       const data = await callWorker('/ping', {}, { config: next });
       result.textContent = `Bağlandı · ${data.model ?? 'Gemini'}`;
     } catch (err) {
-      result.textContent = `${ERROR_TEXT[err.code] ?? ERROR_TEXT.server}${err.detail ? ` (${err.detail})` : ''}`;
+      result.textContent = `${ERROR_TEXT[err.code] ?? ERROR_TEXT.server} (${health.detail}${err.detail ? ` · ${err.detail}` : ''})`;
     } finally {
       test.disabled = false;
     }
