@@ -50,7 +50,7 @@ const textBlock = (name, hint, id) => h('span', { class: 'set-text' },
 function assistantGroup() {
   const cfg = loadConfig();
   const plain = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' };
-  const url = h('input', { class: 'input', type: 'url', id: 'set-asst-url', inputmode: 'url', placeholder: 'https://tamarin-asistan.pages.dev', ...plain });
+  const url = h('input', { class: 'input', type: 'url', id: 'set-asst-url', inputmode: 'url', placeholder: 'https://script.google.com/macros/s/…/exec', ...plain });
   const token = h('input', { class: 'input v-secret', type: 'password', id: 'set-asst-token', ...plain });
   url.value = cfg.url;
   token.value = cfg.token;
@@ -100,7 +100,7 @@ function assistantGroup() {
   return group('Asistan',
     h('div', { class: 'set-row is-stacked', id: 'set-assistant' },
       h('label', { class: 'set-text', for: 'set-asst-url' }, h('span', { class: 'setting-name' }, 'Worker adresi'),
-        h('span', { class: 'hint' }, 'Cloudflare Worker\'ın adresi (README > Asistan).')),
+        h('span', { class: 'hint' }, 'Apps Script (/exec) ya da Worker adresi (README > Asistan).')),
       url),
     h('div', { class: 'set-row is-stacked' },
       h('label', { class: 'set-text', for: 'set-asst-token' }, h('span', { class: 'setting-name' }, 'Erişim kodu'),

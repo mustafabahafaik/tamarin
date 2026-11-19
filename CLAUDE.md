@@ -43,7 +43,8 @@ Arayüz dili Türkçe. Sonraki tüm adımlarda bu kurallara uyulur.
     `context.js` (bağlam özeti + hassas filtre), `tools.js` (araç çağrısı → onay → store), `config.js` (ayarlar,
     Worker istemcisi, hata metinleri), `chat.js` (sohbet sheet'i)
   - `worker/` — Cloudflare Worker (kendi `package.json` + `wrangler.toml`; uygulama yüklemez, sw.js SHELL'e girmez);
-    `worker/pages/` — Cloudflare Pages aracısı (`_worker.js`: isteği servis bağlantısıyla Worker'a iletir, sır yok)
+    `worker/pages/` — Cloudflare Pages aracısı (`_worker.js`: isteği servis bağlantısıyla Worker'a iletir, sır yok);
+    `worker/apps-script/Kod.gs` — Google Apps Script aracısı (script.google.com; isteği Google'ın sunucusundan Worker'a iletir)
   - `tests/` — Node testleri (`vault`, `bills`, `school`, `days`, `tasks`, `ics`, `phones`, `business`, `ring-blocks`, `assistant`, `worker`: `node tests/<ad>.test.mjs`);
     `tests/fixtures/ornek.ics` örnek takvim (`.gitattributes`: `-text`, CRLF bayt bayt korunur)
   - `manifest.webmanifest`, `sw.js`, `icons/`
@@ -348,9 +349,13 @@ Ortadaki tamarin, uygulamadaki verilere bakarak Türkçe soru cevaplar ve onayla
 Beyin Google Gemini API ücretsiz katmanı; ücretli hiçbir servis/plan yok.
 
 - **Mimari:** tarayıcı Gemini'ye doğrudan bağlanmaz. Araya Cloudflare Worker girer (Workers Free, `worker/`).
-  Uygulamanın kullandığı adres **https://tamarin-asistan.pages.dev**: Pages aracısı (`worker/pages/`) isteği servis
-  bağlantısıyla (`ASISTAN` → `tamarin-asistan`) aynen Worker'a iletir. Sebep: iPhone'da github.io sayfasından
-  `*.workers.dev`'e giden istekler (ön uçuşsuz GET bile) "Load failed" ile kesiliyordu; Safari'de doğrudan açılıyordu.
+  **Uygulamanın kullandığı adres Google Apps Script aracısı** (`https://script.google.com/macros/s/<id>/exec`,
+  `worker/apps-script/Kod.gs`): Türkiye'deki ağlar `*.workers.dev` ve `*.pages.dev`'i DNS'ten engelliyor; iPhone'da ana
+  ekrandaki web uygulaması (Safari'nin Özel Geçiş'i olmadan) bunlara ulaşamıyor (ön uçuşsuz GET bile "Load failed"),
+  Safari sekmesi ulaşıyor. Apps Script isteği Google'ın sunucusundan Worker'a aynen iletir (sır yok; hep HTTP 200,
+  hata gövdede `{error}`). İstemci bu adreste yolu `?p=chat|ping` ile verir, sağlık testi adresin kendisine GET
+  (`endpoint`, `isAppsScript`). Yedek: Pages aracısı (`worker/pages/`, https://tamarin-asistan.pages.dev, servis
+  bağlantısı `ASISTAN` → `tamarin-asistan`) aynı engele takılıyor.
   Sırlar, sınırlar, CORS ve doğrulama yalnızca Worker'da. Yayın: `cd worker && npx wrangler deploy`, aracı:
   `cd worker/pages && npx wrangler pages deploy --branch main` (proje bir kez `--force` ile klasik Pages'te açıldı).
   - `POST /chat {messages, context}` → Gemini `generateContent` → `{ text, toolCalls: [{id, name, args}], content }`.

@@ -89,11 +89,13 @@ girer (anahtar telefonda değil, Worker'da durur). Ücretli hiçbir servis gerek
    cd pages && npx wrangler pages deploy --branch main   # aracı: https://<proje>.pages.dev
    ```
 
-   Uygulamada **pages.dev** adresi kullanılır: iPhone'da başka bir siteden `workers.dev`'e giden istekler kesilebiliyor;
-   Pages aracısı isteği aynen Worker'a iletir (sır gerekmez). İlk kurulumda proje bir kez
-   `npx wrangler pages project create <proje> --production-branch main --force` ile açılır.
+   (İsteğe bağlı Pages aracısı; ilk kurulumda proje bir kez
+   `npx wrangler pages project create <proje> --production-branch main --force` ile açılır.)
 
-3. **iPhone:** Tamarin > Ayarlar > **Asistan**: pages.dev adresini ve erişim kodunu yaz, **Bağlantıyı dene**.
+3. **Google Apps Script aracısı** (Türkiye'de `workers.dev`/`pages.dev` ağdan engellenebiliyor; Google adresi engellenmez):
+   https://script.google.com > **Yeni proje** > `worker/apps-script/Kod.gs` içeriğini yapıştır > **Dağıt > Yeni dağıtım** >
+   tür **Web uygulaması**, "Ben" olarak yürüt, erişim **Herkes** > **Dağıt** > izin ver. Çıkan `…/exec` adresi Worker adresidir.
+4. **iPhone:** Tamarin > Ayarlar > **Asistan**: `/exec` adresini ve erişim kodunu yaz, **Bağlantıyı dene**.
 
 Sınırlar: dakikada 10, günde 150 soru (Worker'da). Erişim kodu yalnızca telefonda saklanır, yedeğe girmez.
 
