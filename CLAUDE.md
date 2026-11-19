@@ -367,8 +367,10 @@ Beyin Google Gemini API ücretsiz katmanı; ücretli hiçbir servis/plan yok.
   - **Safari:** istek basit istektir (yukarıda); istemci `fetch`'e `cache` seçeneği VERMEZ (WebKit "no-store"da Cache-Control/Pragma ekler, ön uçuş
     reddedilir, istek "ulaşılamadı" gibi düşer); Worker yine de bu iki başlığa izin verir. "Bağlantıyı dene" hata
     ayrıntısını (hata adı + host; kod değil) gösterir.
-  - Model tek sabitte: `MODEL` (worker/src/index.js), `gemini-3.8-flash` (Gemini docs'ta "Stable" en yeni Flash;
-    Pro değil). Değiştirirken docs'tan doğrula. `thinkingLevel: LOW`, `maxOutputTokens: 600`, araç modu AUTO.
+  - Modeller tek yerde: `MODELS` (worker/src/index.js), tercih sırasıyla `gemini-3.8-flash`, `gemini-3.6-flash`,
+    `gemini-3.5-flash-lite` (Gemini docs'ta "Stable" Flash'lar; Pro yok). Ücretsiz katmanda model yoğunken 503 UNAVAILABLE
+    döner: 5xx ya da zaman aşımında sıradakine geçilir (toplam ≤ 18 sn); hepsi yoğunsa `{ error: "busy" }`. 429 ve 400
+    başka modelde denenmez. Cevapta `model` hangisinin cevapladığını söyler. Değiştirirken docs'tan doğrula. `thinkingLevel: LOW`, `maxOutputTokens: 600`, araç modu AUTO.
   - Sırlar yalnızca `wrangler secret`: `GEMINI_API_KEY`, `TAMARIN_TOKEN`. Anahtar Gemini'ye `x-goog-api-key`
     başlığıyla gider (URL'de değil). Erişim kodu `Authorization: Bearer <kod>` ya da gövdede `{ token }`; yoksa/yanlışsa
     401 (sabit süreli karşılaştırma). Uygulama gövdeyi kullanır: `text/plain` gövdeli, özel başlıksız "basit istek"

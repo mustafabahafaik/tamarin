@@ -67,6 +67,7 @@ export const ERROR_TEXT = {
   empty: 'Kısa bir cevap bulamadım; başka türlü sorar mısın?',
   server: 'Bir şeyler ters gitti; birazdan tekrar dene.',
   gemini: 'Gemini cevap vermedi; birazdan tekrar dene.',
+  busy: 'Gemini şu an çok yoğun; biraz sonra tekrar sor.',
   upstream: "Gemini'ye ulaşılamadı; birazdan tekrar dene.",
   config: 'Asistan sunucusu ayarlanmamış (sırlar eksik).',
 };

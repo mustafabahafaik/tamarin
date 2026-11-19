@@ -12,9 +12,15 @@
 // İçerik loglanmaz ve saklanmaz: console.* yok, KV'de yalnızca sayaçlar.
 import { SYSTEM, CONTEXT_GUIDE, TOOLS } from '../../js/assistant/declarations.js';
 
-/** Güncel kararlı Flash modeli (Gemini docs, Kasım 2026: "Stable"; Pro değil). Tek yer. */
-export const MODEL = 'gemini-3.8-flash';
-const GEMINI = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+/**
+ * Kararlı Flash modelleri (Gemini docs, Kasım 2026: "Stable"; Pro yok), tercih sırasıyla. Tek yer.
+ * Ücretsiz katmanda model yoğunken 503 UNAVAILABLE döner: o zaman sıradakine geçilir.
+ */
+export const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+export const MODEL = MODELS[0];
+const geminiUrl = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+// Yoğunluk / geçici sunucu hatası: sıradaki modeli dene. 429 (kota) ve 400 (istek) denenmez.
+const RETRYABLE = new Set([500, 502, 503, 504]);
 
 export const ORIGINS = ['https://mustafabahafaik.github.io', 'http://localhost:5190'];
 export const LIMITS = { perMinute: 10, perDay: 150, bodyBytes: 48 * 1024, outputTokens: 600, upstreamMs: 18000 };
@@ -107,20 +113,39 @@ export function cleanMessages(messages) {
 
 /* ---------- Gemini ---------- */
 
+/**
+ * Gemini'yi çağırır; yoğunluk (5xx) ya da zaman aşımında sıradaki Flash modeline geçer. Toplam süre
+ * LIMITS.upstreamMs'i aşmaz. Döner: { res, model } (res: son yanıt) ya da hata fırlatır (hepsi ağdan düştüyse).
+ */
 async function callGemini(env, contents, context) {
-  const body = {
+  const body = JSON.stringify({
     systemInstruction: { parts: [{ text: `${SYSTEM}\n\n${CONTEXT_GUIDE}\n\nVERİ:\n${context}` }] },
     contents,
     tools: [{ functionDeclarations: TOOLS }],
     toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
     generationConfig: { maxOutputTokens: LIMITS.outputTokens, thinkingConfig: { thinkingLevel: 'LOW' } },
-  };
-  return fetch(GEMINI, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(LIMITS.upstreamMs),
   });
+  const deadline = Date.now() + LIMITS.upstreamMs;
+  let last = null;
+  let lastErr = null;
+  for (const model of MODELS) {
+    const left = deadline - Date.now();
+    if (left < 1500) break;
+    try {
+      const res = await fetch(geminiUrl(model), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+        body,
+        signal: AbortSignal.timeout(left),
+      });
+      last = { res, model };
+      if (!RETRYABLE.has(res.status)) return last;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  if (last) return last;
+  throw lastErr ?? new Error('upstream');
 }
 
 /** Gemini yanıtını istemcinin anlayacağı sade biçime çevirir. */
@@ -173,8 +198,9 @@ export default {
     if (limited) return json({ error: limited }, 429, origin);
 
     let upstream;
+    let model;
     try {
-      upstream = await callGemini(env, contents, context);
+      ({ res: upstream, model } = await callGemini(env, contents, context));
     } catch (err) {
       return json({ error: err?.name === 'TimeoutError' ? 'timeout' : 'upstream' }, 504, origin);
     }
@@ -182,6 +208,8 @@ export default {
       let err = {};
       try { err = (await upstream.json())?.error ?? {}; } catch { /* gövde yok */ }
       if (upstream.status === 429 || err.status === 'RESOURCE_EXHAUSTED') return json({ error: 'quota' }, 429, origin);
+      // Tüm Flash modelleri yoğun (503): sakin bir "meşgul" cevabı.
+      if (RETRYABLE.has(upstream.status)) return json({ error: 'busy', status: upstream.status }, 503, origin);
       // Gemini'nin hata açıklaması (şema/model/konum sorunu gibi; kullanıcı verisi ya da anahtar içermez), kısaltılmış.
       const detail = `${upstream.status} ${err.status ?? ''} ${String(err.message ?? '').slice(0, 240)}`.trim();
       return json({ error: 'gemini', status: upstream.status, detail }, 502, origin);
@@ -189,6 +217,7 @@ export default {
     let data;
     try { data = await upstream.json(); } catch { return json({ error: 'upstream' }, 502, origin); }
     const out = simplify(data);
+    if (!out.error) out.model = model;
     return json(out, out.error ? 502 : 200, origin);
   },
 };

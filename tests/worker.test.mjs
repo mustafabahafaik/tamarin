@@ -113,6 +113,36 @@ await test('başarılı yanıt sade biçime çevrilir: text, toolCalls, content 
   assert.equal(res.headers.get('Cache-Control'), 'no-store');
 });
 
+await test('yoğunluk: 503 gelince sıradaki Flash modeline geçer; hepsi 503 ise { error: "busy" }; 400 denenmez', async () => {
+  let n = 0;
+  calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init });
+    n++;
+    if (n === 1) return new Response(JSON.stringify({ error: { code: 503, status: 'UNAVAILABLE', message: 'high demand' } }), { status: 503 });
+    return new Response(JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: 'ikinci model' }] } }] }), { status: 200 });
+  };
+  const res = await worker.fetch(req('/chat'), env());
+  const out = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(out.text, 'ikinci model');
+  assert.equal(out.model, W.MODELS[1]);
+  assert.deepEqual(calls.map((c) => c.url.match(/models\/([^:]+):/)[1]), W.MODELS.slice(0, 2));
+  assert.ok(W.MODELS.every((m) => /flash/.test(m) && !/pro/.test(m)), 'yalnızca Flash, Pro yok');
+
+  mockGemini(503, { error: { code: 503, status: 'UNAVAILABLE' } });
+  const busy = await worker.fetch(req('/chat'), env());
+  assert.equal(busy.status, 503);
+  assert.equal((await busy.json()).error, 'busy');
+  assert.equal(calls.length, W.MODELS.length, 'her model bir kez');
+
+  mockGemini(400, { error: { code: 400, status: 'INVALID_ARGUMENT', message: 'kötü şema' } });
+  const bad = await (await worker.fetch(req('/chat'), env())).json();
+  assert.equal(bad.error, 'gemini');
+  assert.match(bad.detail, /INVALID_ARGUMENT kötü şema/);
+  assert.equal(calls.length, 1, '400 başka modelde denenmez');
+});
+
 await test('istek sınırı: dakikada 10 (11. istek 429 rate), günde 150 (429 day)', async () => {
   mockGemini(200, { candidates: [{ content: { role: 'model', parts: [{ text: 'ok' }] } }] });
   const e = env();
